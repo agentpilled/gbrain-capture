@@ -4,6 +4,8 @@
 
 A Chrome extension (Manifest V3) that captures web page content and sends it to a local HTTP server, which stores it in a GBrain knowledge base via the `gbrain` CLI.
 
+This project is self-contained: GBrain is pulled as a git dependency and built locally by `./setup.sh`. No global install required.
+
 ## Architecture
 
 ### Chrome Extension
@@ -26,25 +28,13 @@ A standalone Bun HTTP server that:
 - Returns 202 immediately (fire-and-forget)
 - Handles CORS for chrome-extension:// origins
 
-The server does NOT import GBrain internals. It communicates exclusively via the `gbrain` CLI, so GBrain must be installed and initialized separately.
+The server resolves the gbrain binary in this order: `GBRAIN_BIN` env var, `./bin/gbrain` (local build from setup.sh), then `gbrain` on PATH (global fallback).
 
-## Prerequisites
-
-- [Bun](https://bun.sh) runtime
-- GBrain installed and initialized (`gbrain init`)
-
-## Running
+## Setup
 
 ```bash
-# Start the HTTP server
-bun run serve
-
-# Or in background
-bun run serve:bg
-
-# Or via launchd (macOS)
-cp config/com.gbrain.serve.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.gbrain.serve.plist
+./setup.sh        # installs deps, builds gbrain, initializes database
+bun run serve     # starts the capture server
 ```
 
 ## Testing
@@ -53,18 +43,7 @@ launchctl load ~/Library/LaunchAgents/com.gbrain.serve.plist
 bun test
 ```
 
-## How to load the Chrome extension
-
-1. Open `chrome://extensions`
-2. Enable "Developer mode" (top right)
-3. Click "Load unpacked"
-4. Select this project directory
-
 ## Key shortcuts
 
 - **Mac**: Cmd+Shift+S
 - **Windows/Linux**: Ctrl+Shift+S
-
-## Vendoring Readability.js
-
-After `npm install`, run `npm run vendor` to copy Readability.js into `lib/`.

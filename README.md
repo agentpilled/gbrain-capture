@@ -1,53 +1,36 @@
 # GBrain Capture
 
-A Chrome extension and local HTTP server that captures web page content into your GBrain knowledge base with a single keyboard shortcut.
+Capture web content and make it available to your AI assistant. Everything you read becomes context Claude can use.
 
-## Prerequisites
-
-- [Bun](https://bun.sh) runtime
-- GBrain installed and initialized (`gbrain init`)
-
-## Setup
-
-1. Clone this repo and install dependencies:
-   ```
-   git clone <repo-url> gbrain-capture
-   cd gbrain-capture
-   npm install
-   npm run vendor
-   ```
-
-2. Start the capture server:
-   ```
-   bun run serve
-   ```
-
-3. Open `chrome://extensions` in Chrome
-4. Enable **Developer mode** (toggle in the top right)
-5. Click **Load unpacked** and select the `gbrain-capture` directory
-
-### Auto-start with launchd (macOS)
+## Quick Start
 
 ```bash
-cp config/com.gbrain.serve.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.gbrain.serve.plist
+git clone https://github.com/agentpilled/gbrain-capture
+cd gbrain-capture
+./setup.sh        # installs everything + initializes the database
+bun run serve     # starts the capture server on port 19285
 ```
 
-## Usage
+Then load the Chrome extension:
+1. Open `chrome://extensions`
+2. Enable "Developer mode"
+3. Click "Load unpacked" → select this folder
+4. Press **Cmd+Shift+S** on any page to capture it
 
-1. Make sure the capture server is running (`bun run serve`)
-2. Navigate to any web page
-3. Press **Cmd+Shift+S** (Mac) or **Ctrl+Shift+S** (Windows/Linux)
-4. A toast notification confirms the capture
+## Connect with Claude Code
 
-If the server is not running, captures are queued offline (up to 100) and automatically retried every minute.
+See [config/claude-code-setup.md](config/claude-code-setup.md) for MCP setup instructions.
 
 ## How it works
 
-The extension uses Mozilla's Readability.js to extract the main article content from the page, then sends it to the local HTTP server (port 19285). The server canonicalizes the URL, builds markdown with frontmatter, and stores it in GBrain via `gbrain put`. Selected text is included as highlights.
+1. You press Cmd+Shift+S on any web page
+2. The Chrome extension extracts the article text
+3. It sends the content to the local capture server
+4. GBrain indexes it (chunks, embeddings, vector search)
+5. Claude Code can now search your captured knowledge via MCP
 
-## Testing
+## Requirements
 
-```bash
-bun test
-```
+- [Bun](https://bun.sh) runtime
+- Chrome or Chromium browser
+- OpenAI API key (for embeddings) — set `OPENAI_API_KEY` in your environment

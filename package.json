@@ -5,11 +5,13 @@
   "private": true,
   "scripts": {
     "vendor": "cp node_modules/@mozilla/readability/Readability.js lib/readability.js",
+    "setup": "./setup.sh",
     "serve": "bun run server.ts",
     "serve:bg": "bun run server.ts &",
     "test": "bun test"
   },
   "dependencies": {
-    "@mozilla/readability": "^0.6.0"
+    "@mozilla/readability": "^0.6.0",
+    "gbrain": "github:garrytan/gbrain"
   }
 }

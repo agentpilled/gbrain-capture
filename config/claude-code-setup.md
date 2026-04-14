@@ -2,13 +2,13 @@
 
 ## 1. Add GBrain MCP server to Claude Code
 
-Add the following to your Claude Code MCP settings (`~/.claude/settings.json` or project `.claude/settings.json`):
+Add the following to your Claude Code MCP settings (`~/.claude/settings.json` or project `.claude/settings.json`), replacing `/path/to/gbrain-capture` with the actual path where you cloned this repo:
 
 ```json
 {
   "mcpServers": {
     "gbrain": {
-      "command": "/Users/luca/.bun/bin/gbrain",
+      "command": "/path/to/gbrain-capture/bin/gbrain",
       "args": ["mcp"]
     }
   }

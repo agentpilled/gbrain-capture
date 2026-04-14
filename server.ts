@@ -115,8 +115,20 @@ function corsResponse(status: number, body: unknown, extra?: Record<string, stri
 // GBrain CLI integration
 // ---------------------------------------------------------------------------
 
+function resolveGbrainBin(): string {
+  if (process.env.GBRAIN_BIN) return process.env.GBRAIN_BIN;
+  const localBin = import.meta.dir + '/bin/gbrain';
+  try {
+    const stat = Bun.file(localBin);
+    // Bun.file doesn't throw on missing files, but .size will be 0 for non-existent
+    // Use a sync check instead
+    if (require('fs').existsSync(localBin)) return localBin;
+  } catch {}
+  return 'gbrain';
+}
+
 async function gbrainPut(slug: string, markdown: string): Promise<void> {
-  const gbrainBin = process.env.GBRAIN_BIN || 'gbrain';
+  const gbrainBin = resolveGbrainBin();
   const proc = Bun.spawn([gbrainBin, 'put', slug], {
     stdin: new Blob([markdown]),
     stdout: 'pipe',
