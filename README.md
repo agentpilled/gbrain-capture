@@ -29,6 +29,10 @@ See [config/claude-code-setup.md](config/claude-code-setup.md) for MCP setup ins
 4. GBrain indexes it (chunks, embeddings, vector search)
 5. Claude Code can now search your captured knowledge via MCP
 
+### Kindle Notebook Import
+
+Visit [read.amazon.com/notebook](https://read.amazon.com/notebook) and the extension will show an "Import to GBrain" button. Click it to import all your Kindle highlights and notes. Each book is saved separately under `kindle/{author}/{title}`.
+
 ## Requirements
 
 - [Bun](https://bun.sh) runtime
