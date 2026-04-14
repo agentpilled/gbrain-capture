@@ -7,8 +7,9 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/luca/.bun/bin/gbrain</string>
-        <string>serve</string>
+        <string>/Users/luca/.bun/bin/bun</string>
+        <string>run</string>
+        <string>server.ts</string>
     </array>
 
     <key>RunAtLoad</key>
@@ -18,12 +19,12 @@
     <true/>
 
     <key>WorkingDirectory</key>
-    <string>/Users/luca</string>
+    <string>/Users/luca/gbrain-capture</string>
 
     <key>StandardOutPath</key>
-    <string>/Users/luca/Library/Logs/gbrain-serve.log</string>
+    <string>/Users/luca/Library/Logs/gbrain-capture.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/luca/Library/Logs/gbrain-serve.log</string>
+    <string>/Users/luca/Library/Logs/gbrain-capture.log</string>
 </dict>
 </plist>

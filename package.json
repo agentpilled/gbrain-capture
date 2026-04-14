@@ -4,7 +4,10 @@
   "description": "Chrome extension to capture web content into GBrain",
   "private": true,
   "scripts": {
-    "vendor": "cp node_modules/@mozilla/readability/Readability.js lib/readability.js"
+    "vendor": "cp node_modules/@mozilla/readability/Readability.js lib/readability.js",
+    "serve": "bun run server.ts",
+    "serve:bg": "bun run server.ts &",
+    "test": "bun test"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0"
