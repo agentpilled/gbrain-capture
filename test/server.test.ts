@@ -57,6 +57,21 @@ describe('slugFromUrl', () => {
   test('cleans non-slug characters', () => {
     expect(slugFromUrl('https://example.com/path/with spaces & stuff')).toBe('web/example-com/path/with-spaces-stuff');
   });
+
+  test('kindle:// URL with title generates kindle/author/title slug', () => {
+    expect(slugFromUrl('kindle://book/deep-work-by-cal-newport', 'Deep Work by Cal Newport'))
+      .toBe('kindle/cal-newport/deep-work');
+  });
+
+  test('kindle:// URL without author uses title only', () => {
+    expect(slugFromUrl('kindle://book/some-book', 'Some Book'))
+      .toBe('kindle/some-book');
+  });
+
+  test('kindle:// URL without title falls back to URL path', () => {
+    expect(slugFromUrl('kindle://book/fallback-slug'))
+      .toBe('kindle/fallback-slug');
+  });
 });
 
 describe('buildMarkdown', () => {
@@ -178,6 +193,22 @@ describe('HTTP server', () => {
     const body = await res.json();
     expect(body.status).toBe('accepted');
     expect(body.slug).toBe('web/example-com/article');
+  });
+
+  test('POST /api/capture with kindle:// URL returns 202 with kindle slug', async () => {
+    const res = await fetch(`${BASE}/api/capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: 'kindle://book/deep-work-by-cal-newport',
+        title: 'Deep Work by Cal Newport',
+        content: '## Highlights\n\n> "Deep work is important" (Location 42)\n',
+      }),
+    });
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.status).toBe('accepted');
+    expect(body.slug).toBe('kindle/cal-newport/deep-work');
   });
 
   test('GET /unknown returns 404', async () => {

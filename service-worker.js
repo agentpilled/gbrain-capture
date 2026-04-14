@@ -27,8 +27,9 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // ─── Message listener (from content script) ──────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg.type !== "captured") return;
-  handleCapture(msg, sender.tab?.id);
+  if (msg.type === "captured" || msg.type === "kindle-import") {
+    handleCapture(msg, sender.tab?.id);
+  }
 });
 
 async function handleCapture(data, tabId) {

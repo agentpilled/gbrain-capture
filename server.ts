@@ -41,7 +41,27 @@ export function canonicalizeUrl(raw: string): string {
   return href;
 }
 
-export function slugFromUrl(canonicalUrl: string): string {
+export function slugFromUrl(canonicalUrl: string, title?: string): string {
+  // Handle kindle:// URLs — generate slug from title instead
+  if (canonicalUrl.startsWith('kindle://')) {
+    if (!title) {
+      // Fallback: use the path portion of the kindle URL
+      const path = canonicalUrl.replace('kindle://book/', '');
+      return `kindle/${path}`;
+    }
+
+    // Parse "Book Title by Author Name" format
+    const byMatch = title.match(/^(.+?)\s+by\s+(.+)$/i);
+    if (byMatch) {
+      const titleSlug = slugifyText(byMatch[1]);
+      const authorSlug = slugifyText(byMatch[2]);
+      return `kindle/${authorSlug}/${titleSlug}`;
+    }
+
+    // No author — just use title
+    return `kindle/${slugifyText(title)}`;
+  }
+
   const url = new URL(canonicalUrl);
   const domain = url.hostname.replace(/\./g, '-');
   let path = url.pathname.replace(/^\/|\/$/g, ''); // trim slashes
@@ -59,6 +79,13 @@ export function slugFromUrl(canonicalUrl: string): string {
     .replace(/^-|-$/g, '');        // trim leading/trailing dashes
 
   return `web/${domain}/${path}`;
+}
+
+function slugifyText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 // ---------------------------------------------------------------------------
@@ -167,14 +194,19 @@ async function handleCapture(req: Request): Promise<Response> {
   }
 
   let canonical: string;
-  try {
-    canonical = canonicalizeUrl(url);
-  } catch {
-    return corsResponse(400, { error: 'Invalid URL' });
+  if (url.startsWith('kindle://')) {
+    canonical = url; // kindle:// URLs don't need canonicalization
+  } else {
+    try {
+      canonical = canonicalizeUrl(url);
+    } catch {
+      return corsResponse(400, { error: 'Invalid URL' });
+    }
   }
 
-  const domain = new URL(canonical).hostname;
-  const slug = slugFromUrl(canonical);
+  const isKindle = canonical.startsWith('kindle://');
+  const domain = isKindle ? 'kindle' : new URL(canonical).hostname;
+  const slug = slugFromUrl(canonical, title);
 
   const markdown = buildMarkdown({
     title,
