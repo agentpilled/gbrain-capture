@@ -1,0 +1,12 @@
+{
+  "name": "gbrain-capture",
+  "version": "0.1.0",
+  "description": "Chrome extension to capture web content into GBrain",
+  "private": true,
+  "scripts": {
+    "vendor": "cp node_modules/@mozilla/readability/Readability.js lib/readability.js"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0"
+  }
+}
