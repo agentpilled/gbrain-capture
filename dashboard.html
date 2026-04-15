@@ -226,6 +226,35 @@
     .card-type.pdf { color: var(--blue); }
     .card-type.youtube { color: #dc2626; }
 
+    .card-ai-copy {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: color 150ms ease, background 150ms ease, opacity 150ms ease;
+      line-height: 1;
+      margin-left: 8px;
+      opacity: 0;
+    }
+
+    .card:hover .card-ai-copy {
+      opacity: 1;
+    }
+
+    .card-ai-copy:hover {
+      color: var(--text-primary);
+      background: var(--surface-hover);
+    }
+
+    .card-ai-copy.copied {
+      color: var(--green);
+      opacity: 1;
+    }
+
     .card-chevron {
       color: var(--text-muted);
       transition: transform 200ms ease;
@@ -1077,6 +1106,7 @@
                   ${metaParts.length ? '<span>' + escapeHTML(metaParts.join(' \u00b7 ')) + '</span>' : ''}
                 </div>
               </div>
+              <button class="card-ai-copy" title="Copy for AI">&#x2934;</button>
               <svg class="card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="9 18 15 12 9 6"/>
               </svg>
@@ -1108,8 +1138,23 @@
             }
           }
 
-          card.querySelector('.card-header').addEventListener('click', () => {
+          card.querySelector('.card-header').addEventListener('click', (e) => {
+            if (e.target.closest('.card-ai-copy')) return;
             toggleCard(card, slug);
+          });
+
+          card.querySelector('.card-ai-copy').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            const prompt = generateAIPrompt(item);
+            navigator.clipboard.writeText(prompt).then(() => {
+              btn.textContent = '\u2713';
+              btn.classList.add('copied');
+              setTimeout(() => {
+                btn.innerHTML = '&#x2934;';
+                btn.classList.remove('copied');
+              }, 1000);
+            });
           });
 
           // Connection link click — scroll to connected card
@@ -1227,6 +1272,22 @@
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+      }
+
+      function generateAIPrompt(item) {
+        const title = item.title || '';
+        const slug = item.slug || '';
+        if (slug.startsWith('kindle/')) {
+          return `Search my knowledge base for "${title}" and summarize the key highlights I saved.`;
+        }
+        if (slug.startsWith('youtube/')) {
+          return `Search my knowledge base for the YouTube transcript of "${title}" and summarize the key points.`;
+        }
+        if (slug.startsWith('pdf/')) {
+          return `Search my knowledge base for the PDF "${title}" and summarize what I captured from it.`;
+        }
+        const domain = slug.split('/')[1]?.replace(/-/g, '.') || '';
+        return `Search my knowledge base for the article "${title}"${domain ? ' from ' + domain : ''} and summarize the key points I captured.`;
       }
 
       // Tab handling

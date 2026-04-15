@@ -55,6 +55,24 @@ function truncate(str, len) {
   return str.length > len ? str.slice(0, len) + "\u2026" : str;
 }
 
+function generateAIPrompt(item) {
+  const title = item.title || '';
+  const slug = item.slug || '';
+
+  if (slug.startsWith('kindle/')) {
+    return `Search my knowledge base for "${title}" and summarize the key highlights I saved.`;
+  }
+  if (slug.startsWith('youtube/')) {
+    return `Search my knowledge base for the YouTube transcript of "${title}" and summarize the key points.`;
+  }
+  if (slug.startsWith('pdf/')) {
+    return `Search my knowledge base for the PDF "${title}" and summarize what I captured from it.`;
+  }
+  // Web article
+  const domain = slug.split('/')[1]?.replace(/-/g, '.') || '';
+  return `Search my knowledge base for the article "${title}"${domain ? ' from ' + domain : ''} and summarize the key points I captured.`;
+}
+
 function renderItem(item) {
   const el = document.createElement("div");
   el.className = "item";
@@ -66,9 +84,24 @@ function renderItem(item) {
       ${item.snippet ? `<div class="item-snippet">${escapeHtml(truncate(item.snippet, 80))}</div>` : ""}
     </div>
     <span class="item-date">${formatDate(item.date || item.captured_at)}</span>
+    <button class="item-ai-copy" title="Copy for AI">&#x2934;</button>
   `;
-  el.addEventListener("click", () => {
+  el.addEventListener("click", (e) => {
+    if (e.target.closest('.item-ai-copy')) return;
     navigator.clipboard.writeText(item.title || item.slug || "");
+  });
+  el.querySelector('.item-ai-copy').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const prompt = generateAIPrompt(item);
+    navigator.clipboard.writeText(prompt).then(() => {
+      btn.textContent = '\u2713';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = '&#x2934;';
+        btn.classList.remove('copied');
+      }, 1000);
+    });
   });
   return el;
 }
