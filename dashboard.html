@@ -8,7 +8,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: #0a0a14;
+      background: #08081a;
       color: #e0e0e0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
       font-size: 15px;
@@ -16,7 +16,6 @@
       min-height: 100vh;
     }
 
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #1e1e3a; border-radius: 3px; }
@@ -27,35 +26,33 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 20px 32px;
-      border-bottom: 1px solid #1e1e3a;
+      padding: 18px 32px;
+      border-bottom: 1px solid #1a1a35;
       position: sticky;
       top: 0;
-      background: #0a0a14;
+      background: #08081a;
       z-index: 100;
     }
 
     .header-title {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 700;
       letter-spacing: -0.5px;
+      color: #e0e0e0;
     }
 
     .header-title span { margin-right: 6px; }
 
-    .search-box {
-      position: relative;
-      width: 320px;
-    }
+    .search-box { position: relative; width: 300px; }
 
     .search-input {
       width: 100%;
-      padding: 10px 16px 10px 40px;
-      background: #12122a;
-      border: 1px solid #1e1e3a;
-      border-radius: 10px;
+      padding: 9px 14px 9px 38px;
+      background: #0f0f23;
+      border: 1px solid #1a1a35;
+      border-radius: 8px;
       color: #e0e0e0;
-      font-size: 14px;
+      font-size: 13px;
       outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
@@ -64,22 +61,40 @@
 
     .search-input:focus {
       border-color: #4ade80;
-      box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.15);
+      box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.12);
     }
 
     .search-icon {
       position: absolute;
-      left: 14px;
+      left: 12px;
       top: 50%;
       transform: translateY(-50%);
       color: #555;
-      font-size: 14px;
+      font-size: 13px;
       pointer-events: none;
     }
 
+    .search-clear {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #555;
+      font-size: 16px;
+      cursor: pointer;
+      display: none;
+      background: none;
+      border: none;
+      line-height: 1;
+      padding: 2px;
+    }
+
+    .search-clear:hover { color: #888; }
+    .search-clear.visible { display: block; }
+
     /* Container */
     .container {
-      max-width: 960px;
+      max-width: 900px;
       margin: 0 auto;
       padding: 24px 32px 64px;
     }
@@ -87,94 +102,141 @@
     /* Stats bar */
     .stats-bar {
       display: flex;
-      gap: 16px;
-      margin-bottom: 32px;
-      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
     }
 
     .stat-card {
-      background: #12122a;
-      border: 1px solid #1e1e3a;
-      border-radius: 12px;
-      padding: 16px 24px;
-      min-width: 140px;
+      background: #0f0f23;
+      border: 1px solid #1a1a35;
+      border-radius: 10px;
+      padding: 14px 20px;
       flex: 1;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.15s, transform 0.15s;
+      user-select: none;
+    }
+
+    .stat-card:hover {
+      border-color: #2a2a4a;
+      background: #13132d;
+      transform: translateY(-1px);
+    }
+
+    .stat-card.active {
+      border-color: #4ade80;
+      background: #0d1a14;
+    }
+
+    .stat-card.active.kindle-filter {
+      border-color: #f59e0b;
+      background: #1a1508;
+    }
+
+    .stat-emoji {
+      font-size: 16px;
+      margin-bottom: 2px;
     }
 
     .stat-value {
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 700;
       color: #4ade80;
       line-height: 1.2;
     }
 
     .stat-value.kindle { color: #f59e0b; }
+    .stat-value.highlight { color: #e0e0e0; }
 
     .stat-label {
-      font-size: 12px;
-      color: #888;
+      font-size: 11px;
+      color: #666;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
-    /* Section */
-    .section {
-      margin-bottom: 32px;
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #1a1a35;
+      padding-bottom: 0;
     }
 
-    .section-title {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #888;
-      margin-bottom: 12px;
-      padding-left: 4px;
+    .tab {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.2s, border-color 0.2s;
+      user-select: none;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
     }
 
-    .section-title.kindle { color: #f59e0b; }
-    .section-title.web { color: #4ade80; }
+    .tab:hover { color: #aaa; }
+
+    .tab.active {
+      color: #4ade80;
+      border-bottom-color: #4ade80;
+    }
 
     /* Cards */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     .card {
-      background: #12122a;
-      border: 1px solid #1e1e3a;
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-bottom: 8px;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.15s;
+      background: #0f0f23;
+      border: 1px solid #1a1a35;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s, opacity 0.3s, transform 0.3s;
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .card.visible {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     .card:hover {
-      border-color: #2e2e4a;
-      background: #16163a;
-    }
-
-    .card.expanded {
-      border-color: #2e2e4a;
+      border-color: #2a2a4a;
     }
 
     .card-header {
       display: flex;
       align-items: flex-start;
       gap: 12px;
+      padding: 14px 18px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .card-header:hover {
+      background: rgba(255,255,255,0.015);
     }
 
     .card-icon {
-      font-size: 20px;
+      font-size: 18px;
       flex-shrink: 0;
       margin-top: 1px;
     }
 
-    .card-body {
-      flex: 1;
-      min-width: 0;
-    }
+    .card-body { flex: 1; min-width: 0; }
 
     .card-title {
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 600;
       color: #e0e0e0;
       line-height: 1.4;
@@ -183,118 +245,143 @@
     .card-meta {
       font-size: 12px;
       color: #888;
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
-    .card-meta .kindle-accent { color: #f59e0b; }
-    .card-meta .green-accent { color: #4ade80; }
-
     .card-chevron {
-      color: #555;
-      font-size: 14px;
+      color: #444;
+      font-size: 11px;
       flex-shrink: 0;
       margin-top: 4px;
-      transition: transform 0.2s;
+      transition: transform 0.25s ease;
     }
 
     .card.expanded .card-chevron {
       transform: rotate(90deg);
     }
 
-    /* Highlights preview (collapsed) */
-    .highlights-preview {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #1a1a30;
-    }
-
-    .highlight-item {
-      padding: 8px 0;
-      border-left: 2px solid #f59e0b;
-      padding-left: 12px;
-      margin-bottom: 8px;
-      font-size: 13px;
-      color: #ccc;
-      line-height: 1.5;
-    }
-
-    .highlight-item.note {
-      border-left-color: #4ade80;
-      font-style: italic;
-      color: #aaa;
-    }
-
-    .highlight-item blockquote {
-      margin: 0;
-    }
-
-    /* Expanded content */
+    /* Card content area */
     .card-content {
-      display: none;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #1a1a30;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
     }
 
     .card.expanded .card-content {
-      display: block;
+      max-height: 5000px;
     }
 
-    .expand-hint {
+    .card-content-inner {
+      padding: 0 18px 16px 48px;
+      border-top: 1px solid #1a1a35;
+    }
+
+    /* Highlights */
+    .hl-item {
+      padding: 8px 0 8px 14px;
+      margin-top: 10px;
+      border-left: 3px solid #4ade80;
+      font-size: 14px;
+      color: #d0d0d0;
+      font-style: italic;
+      line-height: 1.55;
+    }
+
+    .hl-item .hl-page {
       font-size: 12px;
-      color: #555;
-      margin-top: 8px;
-      cursor: pointer;
+      color: #666;
+      font-style: normal;
+      margin-top: 3px;
     }
 
-    .expand-hint:hover { color: #888; }
-
-    /* Loading */
-    .loading {
-      text-align: center;
-      padding: 48px;
-      color: #555;
+    .hl-item.note {
+      border-left-color: #f59e0b;
+      font-size: 13px;
+      color: #ccc;
     }
 
-    .loading-spinner {
+    .hl-item.note .note-prefix {
+      font-style: normal;
+    }
+
+    .hl-heading {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f59e0b;
+      margin-top: 14px;
+      margin-bottom: 2px;
+    }
+
+    .show-all-btn {
       display: inline-block;
-      width: 24px;
-      height: 24px;
-      border: 2px solid #1e1e3a;
-      border-top-color: #4ade80;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      margin-top: 14px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: #888;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #1a1a35;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+
+    .show-all-btn:hover {
+      color: #ccc;
+      border-color: #2a2a4a;
+      background: rgba(255,255,255,0.05);
+    }
+
+    /* Web content */
+    .web-paragraph {
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #bbb;
+      line-height: 1.6;
+    }
+
+    .web-heading {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 16px 0 6px;
+      color: #e0e0e0;
+    }
+
+    .web-heading-2 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 14px 0 4px;
+      color: #ccc;
+    }
+
+    /* Search results */
+    .search-results-container { display: none; }
+    .search-results-container.active { display: block; }
+
+    .search-result-header {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
       margin-bottom: 12px;
     }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Search results */
-    .search-results-container {
-      display: none;
-    }
-
-    .search-results-container.active {
-      display: block;
-    }
-
     .search-result {
-      background: #12122a;
-      border: 1px solid #1e1e3a;
-      border-radius: 12px;
-      padding: 14px 20px;
+      background: #0f0f23;
+      border: 1px solid #1a1a35;
+      border-radius: 10px;
+      padding: 14px 18px;
       margin-bottom: 8px;
       cursor: pointer;
       transition: border-color 0.2s, background 0.15s;
     }
 
     .search-result:hover {
-      border-color: #2e2e4a;
-      background: #16163a;
+      border-color: #2a2a4a;
+      background: #13132d;
     }
 
     .search-result-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       color: #e0e0e0;
     }
@@ -309,7 +396,7 @@
     .search-result-snippet {
       font-size: 13px;
       color: #888;
-      margin-top: 6px;
+      margin-top: 5px;
       line-height: 1.5;
     }
 
@@ -317,7 +404,37 @@
       text-align: center;
       padding: 32px;
       color: #555;
-      font-size: 14px;
+      font-size: 13px;
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: #555;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border: 2px solid #1a1a35;
+      border-top-color: #4ade80;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 10px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .mini-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #1a1a35;
+      border-top-color: #4ade80;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
     }
 
     /* Empty state */
@@ -328,25 +445,31 @@
     }
 
     .empty-state h3 {
-      font-size: 18px;
+      font-size: 16px;
       color: #888;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
+
+    .empty-state p { font-size: 13px; }
 
     /* Responsive */
     @media (max-width: 640px) {
-      .header { padding: 16px; }
+      .header { padding: 14px 16px; }
       .container { padding: 16px; }
-      .search-box { width: 200px; }
-      .stat-card { min-width: 100px; padding: 12px 16px; }
-      .stat-value { font-size: 22px; }
+      .search-box { width: 180px; }
+      .stat-card { padding: 10px 14px; }
+      .stat-value { font-size: 20px; }
+      .stats-bar { gap: 8px; }
+      .card-content-inner { padding-left: 18px; }
+      .tab { padding: 8px 12px; font-size: 12px; }
     }
 
     @media (max-width: 420px) {
-      .header { flex-wrap: wrap; gap: 12px; }
+      .header { flex-wrap: wrap; gap: 10px; }
       .search-box { width: 100%; }
-      .stats-bar { gap: 8px; }
-      .stat-card { min-width: 80px; }
+      .stats-bar { gap: 6px; }
+      .stat-card { min-width: 0; padding: 10px 12px; }
+      .stat-value { font-size: 18px; }
     }
   </style>
 </head>
@@ -356,6 +479,7 @@
     <div class="search-box">
       <span class="search-icon">&#x1F50D;</span>
       <input type="text" class="search-input" id="searchInput" placeholder="Search your knowledge base..." autocomplete="off">
+      <button class="search-clear" id="searchClear" aria-label="Clear search">&times;</button>
     </div>
   </div>
 
@@ -366,27 +490,21 @@
     </div>
 
     <div id="content" style="display:none">
-      <!-- Stats -->
       <div class="stats-bar" id="statsBar"></div>
 
-      <!-- Search results -->
+      <div class="tabs" id="tabBar">
+        <button class="tab active" data-filter="all">All</button>
+        <button class="tab" data-filter="kindle">&#x1F4D6; Kindle Books</button>
+        <button class="tab" data-filter="web">&#x1F310; Web Articles</button>
+      </div>
+
       <div class="search-results-container" id="searchResults">
-        <div class="section-title">Search Results</div>
+        <div class="search-result-header" id="searchResultHeader">Search Results</div>
         <div id="searchResultsList"></div>
       </div>
 
-      <!-- Main content -->
       <div id="mainContent">
-        <div class="section" id="kindleSection" style="display:none">
-          <div class="section-title kindle">Kindle Books</div>
-          <div id="kindleList"></div>
-        </div>
-
-        <div class="section" id="webSection" style="display:none">
-          <div class="section-title web">Web Captures</div>
-          <div id="webList"></div>
-        </div>
-
+        <div class="card-list" id="cardList"></div>
         <div id="emptyState" class="empty-state" style="display:none">
           <h3>Your knowledge base is empty</h3>
           <p>Start capturing pages with the Chrome extension or import Kindle highlights.</p>
@@ -399,8 +517,10 @@
     const API = '';
 
     // State
-    let allItems = [];
+    let allCards = []; // { slug, title, author, domain, date, type, category, highlightCount, noteCount, element }
+    let activeFilter = 'all';
     let searchTimeout = null;
+    let statsData = null;
 
     // ── Init ──────────────────────────────────────────────────────────
     async function init() {
@@ -410,13 +530,14 @@
           fetch(API + '/api/recent?limit=200')
         ]);
 
-        const stats = await statsRes.json();
+        statsData = await statsRes.json();
         const recent = await recentRes.json();
+        const items = recent.results || [];
 
-        allItems = recent.results || [];
-
-        renderStats(stats);
-        renderItems(allItems);
+        renderStats(statsData);
+        buildCards(items);
+        applyFilter('all');
+        autoExpandFirst();
       } catch (err) {
         console.error('Failed to load:', err);
         document.getElementById('loading').innerHTML =
@@ -426,38 +547,54 @@
 
       document.getElementById('loading').style.display = 'none';
       document.getElementById('content').style.display = 'block';
+
+      // Stagger card fade-in
+      requestAnimationFrame(() => {
+        const visible = document.querySelectorAll('.card[data-visible="1"]');
+        visible.forEach((card, i) => {
+          setTimeout(() => card.classList.add('visible'), i * 40);
+        });
+      });
     }
 
     // ── Stats ─────────────────────────────────────────────────────────
     function renderStats(stats) {
       const bar = document.getElementById('statsBar');
       bar.innerHTML = `
-        <div class="stat-card">
+        <div class="stat-card" data-stat-filter="kindle" id="statBooks">
+          <div class="stat-emoji">&#x1F4DA;</div>
           <div class="stat-value kindle">${stats.books || 0}</div>
           <div class="stat-label">Books</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" data-stat-filter="web" id="statArticles">
+          <div class="stat-emoji">&#x1F310;</div>
           <div class="stat-value">${stats.articles || 0}</div>
           <div class="stat-label">Articles</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-value">${stats.highlights || 0}</div>
+        <div class="stat-card" id="statHighlights">
+          <div class="stat-emoji">&#x2728;</div>
+          <div class="stat-value highlight">${stats.highlights || 0}</div>
           <div class="stat-label">Highlights</div>
         </div>
       `;
+
+      // Clickable stat cards
+      bar.querySelectorAll('.stat-card[data-stat-filter]').forEach(el => {
+        el.addEventListener('click', () => {
+          const filter = el.dataset.statFilter;
+          setActiveFilter(filter);
+        });
+      });
     }
 
-    // ── Render Items ──────────────────────────────────────────────────
-    function renderItems(items) {
-      const kindleItems = [];
-      const webItems = [];
-
-      // Group kindle items by book (by the first two slug segments: kindle/author/title)
+    // ── Build Cards ───────────────────────────────────────────────────
+    function buildCards(items) {
+      const cardList = document.getElementById('cardList');
       const kindleBooks = {};
+      const webItems = [];
 
       for (const item of items) {
         if (item.slug && item.slug.startsWith('kindle/')) {
-          // Group by book: take the slug path as the book key
           const bookKey = item.slug;
           if (!kindleBooks[bookKey]) {
             kindleBooks[bookKey] = {
@@ -472,155 +609,214 @@
         }
       }
 
-      const kindleSection = document.getElementById('kindleSection');
-      const webSection = document.getElementById('webSection');
-      const emptyState = document.getElementById('emptyState');
-
       const books = Object.values(kindleBooks);
 
       if (books.length === 0 && webItems.length === 0) {
-        emptyState.style.display = 'block';
+        document.getElementById('emptyState').style.display = 'block';
         return;
       }
 
-      // Render kindle books
-      if (books.length > 0) {
-        kindleSection.style.display = 'block';
-        const list = document.getElementById('kindleList');
-        list.innerHTML = '';
-
-        for (const book of books) {
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.dataset.slug = book.slug;
-
-          // Parse title: "Book Title by Author" or just title from slug
-          const titleInfo = parseBookTitle(book.title, book.slug);
-
-          card.innerHTML = `
-            <div class="card-header">
-              <span class="card-icon">&#x1F4D6;</span>
-              <div class="card-body">
-                <div class="card-title">${escapeHtml(titleInfo.title)}</div>
-                <div class="card-meta">
-                  ${titleInfo.author ? escapeHtml(titleInfo.author) : ''}
-                  ${book.date ? ' &middot; ' + formatDate(book.date) : ''}
-                </div>
-              </div>
-              <span class="card-chevron">&#x25B6;</span>
-            </div>
-            <div class="card-content">
-              <div class="loading" style="padding:16px"><div class="loading-spinner"></div></div>
-            </div>
-          `;
-
-          card.addEventListener('click', () => toggleCard(card));
-          list.appendChild(card);
-        }
+      // Build kindle cards
+      for (const book of books) {
+        const titleInfo = parseBookTitle(book.title, book.slug);
+        const card = createCardElement({
+          slug: book.slug,
+          title: titleInfo.title,
+          author: titleInfo.author,
+          date: book.date,
+          category: 'kindle',
+          icon: '&#x1F4D6;'
+        });
+        cardList.appendChild(card);
       }
 
-      // Render web captures
-      if (webItems.length > 0) {
-        webSection.style.display = 'block';
-        const list = document.getElementById('webList');
-        list.innerHTML = '';
+      // Build web cards
+      for (const item of webItems) {
+        const domain = extractDomain(item.slug);
+        const card = createCardElement({
+          slug: item.slug,
+          title: item.title || formatSlug(item.slug),
+          domain: domain,
+          date: item.date,
+          category: 'web',
+          icon: '&#x1F310;'
+        });
+        cardList.appendChild(card);
+      }
+    }
 
-        for (const item of webItems) {
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.dataset.slug = item.slug;
+    function createCardElement(data) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.slug = data.slug;
+      card.dataset.category = data.category;
 
-          const domain = extractDomain(item.slug);
+      const metaParts = [];
+      if (data.author) metaParts.push(escapeHtml(data.author));
+      if (data.domain) metaParts.push(escapeHtml(data.domain));
+      if (data.date) metaParts.push(formatDate(data.date));
 
-          card.innerHTML = `
-            <div class="card-header">
-              <span class="card-icon">&#x1F310;</span>
-              <div class="card-body">
-                <div class="card-title">${escapeHtml(item.title || formatSlug(item.slug))}</div>
-                <div class="card-meta">
-                  ${domain ? escapeHtml(domain) : ''}
-                  ${item.date ? ' &middot; ' + formatDate(item.date) : ''}
-                </div>
-              </div>
-              <span class="card-chevron">&#x25B6;</span>
-            </div>
-            <div class="card-content">
-              <div class="loading" style="padding:16px"><div class="loading-spinner"></div></div>
-            </div>
-          `;
+      card.innerHTML = `
+        <div class="card-header">
+          <span class="card-icon">${data.icon}</span>
+          <div class="card-body">
+            <div class="card-title">${escapeHtml(data.title)}</div>
+            <div class="card-meta">${metaParts.join(' &middot; ')}</div>
+          </div>
+          <span class="card-chevron">&#x25B6;</span>
+        </div>
+        <div class="card-content">
+          <div class="card-content-inner">
+            <div style="padding:12px 0;text-align:center"><span class="mini-spinner"></span></div>
+          </div>
+        </div>
+      `;
 
-          card.addEventListener('click', () => toggleCard(card));
-          list.appendChild(card);
+      card.querySelector('.card-header').addEventListener('click', () => toggleCard(card));
+
+      allCards.push({
+        slug: data.slug,
+        category: data.category,
+        element: card
+      });
+
+      return card;
+    }
+
+    // ── Filter & Tabs ─────────────────────────────────────────────────
+    function setActiveFilter(filter) {
+      activeFilter = filter;
+      applyFilter(filter);
+
+      // Update tabs
+      document.querySelectorAll('.tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.filter === filter);
+      });
+
+      // Update stat cards
+      document.querySelectorAll('.stat-card[data-stat-filter]').forEach(el => {
+        const isActive = el.dataset.statFilter === filter;
+        el.classList.toggle('active', isActive);
+        el.classList.toggle('kindle-filter', isActive && filter === 'kindle');
+      });
+
+      // Clear stat highlight if "all"
+      if (filter === 'all') {
+        document.querySelectorAll('.stat-card').forEach(el => {
+          el.classList.remove('active', 'kindle-filter');
+        });
+      }
+    }
+
+    function applyFilter(filter) {
+      let visibleIndex = 0;
+      for (const cardData of allCards) {
+        const show = filter === 'all' || cardData.category === filter;
+        cardData.element.style.display = show ? '' : 'none';
+        if (show) {
+          cardData.element.dataset.visible = '1';
+          // Re-trigger animation for newly shown cards
+          if (!cardData.element.classList.contains('visible')) {
+            setTimeout(() => cardData.element.classList.add('visible'), visibleIndex * 30);
+          }
+          visibleIndex++;
+        } else {
+          cardData.element.dataset.visible = '0';
         }
       }
     }
 
+    // Tab click handlers
+    document.getElementById('tabBar').addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab');
+      if (!tab) return;
+      setActiveFilter(tab.dataset.filter);
+    });
+
     // ── Expand/Collapse Card ──────────────────────────────────────────
-    async function toggleCard(card) {
+    async function toggleCard(card, forceExpand) {
       const wasExpanded = card.classList.contains('expanded');
 
-      if (wasExpanded) {
+      if (wasExpanded && !forceExpand) {
         card.classList.remove('expanded');
         return;
       }
 
       card.classList.add('expanded');
 
-      const contentEl = card.querySelector('.card-content');
+      const contentInner = card.querySelector('.card-content-inner');
       const slug = card.dataset.slug;
 
-      // Check if already loaded
-      if (contentEl.dataset.loaded) return;
+      if (contentInner.dataset.loaded) return;
 
       try {
         const res = await fetch(API + '/api/page?slug=' + encodeURIComponent(slug));
         const data = await res.json();
 
         if (data.content) {
-          contentEl.innerHTML = renderPageContent(data.content, slug.startsWith('kindle/'));
+          const isKindle = slug.startsWith('kindle/');
+          if (isKindle) {
+            renderKindleCard(contentInner, data.content);
+          } else {
+            renderWebCard(contentInner, data.content);
+          }
         } else {
-          contentEl.innerHTML = '<div style="color:#555;font-size:13px">No content available</div>';
+          contentInner.innerHTML = '<div style="color:#555;font-size:13px;padding:8px 0">No content available</div>';
         }
-        contentEl.dataset.loaded = '1';
+        contentInner.dataset.loaded = '1';
       } catch (err) {
-        contentEl.innerHTML = '<div style="color:#f87171;font-size:13px">Failed to load content</div>';
+        contentInner.innerHTML = '<div style="color:#f87171;font-size:13px;padding:8px 0">Failed to load content</div>';
       }
     }
 
-    // ── Render page content ───────────────────────────────────────────
-    function renderPageContent(content, isKindle) {
-      // Strip frontmatter
+    // ── Auto-expand first 3 books ─────────────────────────────────────
+    async function autoExpandFirst() {
+      const kindleCards = allCards.filter(c => c.category === 'kindle').slice(0, 3);
+      for (const cardData of kindleCards) {
+        await toggleCard(cardData.element, true);
+        // For auto-expanded, collapse the "show all" by default — show preview only
+        const inner = cardData.element.querySelector('.card-content-inner');
+        if (inner && inner.dataset.loaded) {
+          collapseToPreview(inner);
+        }
+      }
+    }
+
+    function collapseToPreview(inner) {
+      const allHighlights = inner.querySelectorAll('.hl-item');
+      const showAllBtn = inner.querySelector('.show-all-btn');
+      if (allHighlights.length <= 3) return;
+
+      // Hide all after first 3
+      allHighlights.forEach((el, i) => {
+        if (i >= 3) el.classList.add('hl-hidden');
+      });
+
+      // Hide headings that come after the 3rd highlight
+      const allElements = inner.children;
+      let hlSeen = 0;
+      for (const el of allElements) {
+        if (el.classList && el.classList.contains('hl-item')) {
+          hlSeen++;
+        }
+        if (hlSeen > 3 && el.classList && (el.classList.contains('hl-heading') || el.classList.contains('hl-item'))) {
+          el.classList.add('hl-hidden');
+        }
+      }
+
+      if (showAllBtn) showAllBtn.style.display = '';
+    }
+
+    // ── Render Kindle Content ─────────────────────────────────────────
+    function renderKindleCard(container, content) {
       const fmMatch = content.match(/^---\n[\s\S]*?\n---\n/);
       let body = fmMatch ? content.slice(fmMatch[0].length).trim() : content.trim();
 
-      if (isKindle) {
-        return renderKindleContent(body);
-      }
-
-      // For web captures, render as simple text with paragraphs
-      const paragraphs = body.split(/\n\n+/);
-      let html = '';
-      for (const p of paragraphs) {
-        const trimmed = p.trim();
-        if (!trimmed) continue;
-        if (trimmed.startsWith('> ')) {
-          html += `<div class="highlight-item">${escapeHtml(trimmed.replace(/^>\s*/gm, ''))}</div>`;
-        } else if (trimmed.startsWith('# ')) {
-          html += `<div style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#e0e0e0">${escapeHtml(trimmed.replace(/^#+\s*/, ''))}</div>`;
-        } else if (trimmed.startsWith('## ')) {
-          html += `<div style="font-size:14px;font-weight:600;margin:14px 0 6px;color:#ccc">${escapeHtml(trimmed.replace(/^#+\s*/, ''))}</div>`;
-        } else {
-          html += `<div style="margin-bottom:8px;font-size:13px;color:#bbb;line-height:1.6">${escapeHtml(trimmed)}</div>`;
-        }
-      }
-      return html || '<div style="color:#555;font-size:13px">No content</div>';
-    }
-
-    function renderKindleContent(body) {
       const lines = body.split('\n');
       let html = '';
       let highlightCount = 0;
       let noteCount = 0;
+      const parsedItems = [];
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -629,41 +825,139 @@
         if (trimmed.startsWith('> ')) {
           highlightCount++;
           const text = trimmed.replace(/^>\s*/, '');
-          html += `<div class="highlight-item">${escapeHtml(text)}</div>`;
+          const pageMatch = text.match(/\(Page\s+(\d+)\)\s*$/i);
+          let displayText = text;
+          let page = null;
+          if (pageMatch) {
+            page = pageMatch[1];
+            displayText = text.slice(0, text.length - pageMatch[0].length).trim();
+          }
+          parsedItems.push({ type: 'highlight', text: displayText, page });
         } else if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
           const heading = trimmed.replace(/^#+\s*/, '');
-          html += `<div style="font-size:14px;font-weight:600;margin:16px 0 8px;color:#f59e0b">${escapeHtml(heading)}</div>`;
-        } else if (trimmed.startsWith('**Note:**') || trimmed.startsWith('*Note:*')) {
+          if (heading.toLowerCase() !== 'notes' && heading.toLowerCase() !== 'highlights') {
+            parsedItems.push({ type: 'heading', text: heading });
+          }
+        } else if (trimmed.startsWith('- ')) {
+          // Notes often appear as list items
           noteCount++;
-          const noteText = trimmed.replace(/^\*+Note:\*+\s*/, '');
-          html += `<div class="highlight-item note">${escapeHtml(noteText)}</div>`;
-        } else if (trimmed.startsWith('Note:') || trimmed.startsWith('note:')) {
+          const noteText = trimmed.replace(/^-\s*/, '');
+          const pageMatch = noteText.match(/\(Page\s+(\d+)\)\s*$/i);
+          let displayText = noteText;
+          let page = null;
+          if (pageMatch) {
+            page = pageMatch[1];
+            displayText = noteText.slice(0, noteText.length - pageMatch[0].length).trim();
+          }
+          parsedItems.push({ type: 'note', text: displayText, page });
+        } else if (trimmed.startsWith('**Note:**') || trimmed.startsWith('*Note:*') || trimmed.startsWith('Note:') || trimmed.startsWith('note:')) {
           noteCount++;
-          html += `<div class="highlight-item note">${escapeHtml(trimmed.replace(/^[Nn]ote:\s*/, ''))}</div>`;
-        } else if (!trimmed.startsWith('---') && !trimmed.startsWith('title:') && !trimmed.startsWith('type:') && !trimmed.startsWith('tags:') && !trimmed.startsWith('source_url:') && !trimmed.startsWith('captured_at:')) {
-          html += `<div style="margin-bottom:6px;font-size:13px;color:#999;line-height:1.5">${escapeHtml(trimmed)}</div>`;
+          const noteText = trimmed.replace(/^\*+Note:\*+\s*/, '').replace(/^[Nn]ote:\s*/, '');
+          const pageMatch = noteText.match(/\(Page\s+(\d+)\)\s*$/i);
+          let displayText = noteText;
+          let page = null;
+          if (pageMatch) {
+            page = pageMatch[1];
+            displayText = noteText.slice(0, noteText.length - pageMatch[0].length).trim();
+          }
+          parsedItems.push({ type: 'note', text: displayText, page });
         }
       }
 
-      if (highlightCount > 0 || noteCount > 0) {
-        const summary = [];
-        if (highlightCount) summary.push(`${highlightCount} highlight${highlightCount !== 1 ? 's' : ''}`);
-        if (noteCount) summary.push(`${noteCount} note${noteCount !== 1 ? 's' : ''}`);
-        html = `<div style="font-size:12px;color:#888;margin-bottom:12px">${summary.join(' &middot; ')}</div>` + html;
+      // Summary line
+      const summaryParts = [];
+      if (highlightCount) summaryParts.push(`${highlightCount} highlight${highlightCount !== 1 ? 's' : ''}`);
+      if (noteCount) summaryParts.push(`${noteCount} note${noteCount !== 1 ? 's' : ''}`);
+
+      // Update the card meta with counts
+      const card = container.closest('.card');
+      if (card && summaryParts.length) {
+        const meta = card.querySelector('.card-meta');
+        if (meta) {
+          const existing = meta.innerHTML;
+          meta.innerHTML = existing + (existing ? ' &middot; ' : '') +
+            '<span style="color:#f59e0b">' + summaryParts.join(' &middot; ') + '</span>';
+        }
       }
 
-      return html || '<div style="color:#555;font-size:13px">No highlights found</div>';
+      // Render items
+      for (const item of parsedItems) {
+        if (item.type === 'heading') {
+          html += `<div class="hl-heading">${escapeHtml(item.text)}</div>`;
+        } else if (item.type === 'highlight') {
+          html += `<div class="hl-item">
+            <div>"${escapeHtml(item.text)}"</div>
+            ${item.page ? `<div class="hl-page">Page ${item.page}</div>` : ''}
+          </div>`;
+        } else if (item.type === 'note') {
+          html += `<div class="hl-item note">
+            <div><span class="note-prefix">&#x1F4DD; </span>${escapeHtml(item.text)}</div>
+            ${item.page ? `<div class="hl-page">Page ${item.page}</div>` : ''}
+          </div>`;
+        }
+      }
+
+      // "Show all" button if more than 3
+      const totalItems = parsedItems.filter(i => i.type === 'highlight' || i.type === 'note').length;
+      if (totalItems > 3) {
+        html += `<button class="show-all-btn" onclick="showAllHighlights(this)">Show all ${totalItems} highlights &#x25BC;</button>`;
+      }
+
+      container.innerHTML = html || '<div style="color:#555;font-size:13px;padding:8px 0">No highlights found</div>';
+
+      // Add hidden style
+      const style = document.createElement('style');
+      style.textContent = '.hl-hidden { display: none; }';
+      if (!document.querySelector('style[data-hl-hidden]')) {
+        style.dataset.hlHidden = '1';
+        document.head.appendChild(style);
+      }
+    }
+
+    function showAllHighlights(btn) {
+      const container = btn.parentElement;
+      container.querySelectorAll('.hl-hidden').forEach(el => {
+        el.classList.remove('hl-hidden');
+      });
+      btn.style.display = 'none';
+    }
+
+    // ── Render Web Content ────────────────────────────────────────────
+    function renderWebCard(container, content) {
+      const fmMatch = content.match(/^---\n[\s\S]*?\n---\n/);
+      let body = fmMatch ? content.slice(fmMatch[0].length).trim() : content.trim();
+
+      const paragraphs = body.split(/\n\n+/);
+      let html = '';
+      for (const p of paragraphs) {
+        const trimmed = p.trim();
+        if (!trimmed) continue;
+        if (trimmed.startsWith('> ')) {
+          html += `<div class="hl-item">${escapeHtml(trimmed.replace(/^>\s*/gm, ''))}</div>`;
+        } else if (trimmed.startsWith('# ')) {
+          html += `<div class="web-heading">${escapeHtml(trimmed.replace(/^#+\s*/, ''))}</div>`;
+        } else if (trimmed.startsWith('## ')) {
+          html += `<div class="web-heading-2">${escapeHtml(trimmed.replace(/^#+\s*/, ''))}</div>`;
+        } else {
+          html += `<div class="web-paragraph">${escapeHtml(trimmed)}</div>`;
+        }
+      }
+      container.innerHTML = html || '<div style="color:#555;font-size:13px;padding:8px 0">No content</div>';
     }
 
     // ── Search ────────────────────────────────────────────────────────
     const searchInput = document.getElementById('searchInput');
+    const searchClear = document.getElementById('searchClear');
     const searchResults = document.getElementById('searchResults');
     const searchResultsList = document.getElementById('searchResultsList');
+    const searchResultHeader = document.getElementById('searchResultHeader');
     const mainContent = document.getElementById('mainContent');
 
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimeout);
       const q = searchInput.value.trim();
+
+      searchClear.classList.toggle('visible', q.length > 0);
 
       if (!q) {
         searchResults.classList.remove('active');
@@ -674,10 +968,19 @@
       searchTimeout = setTimeout(() => doSearch(q), 300);
     });
 
+    searchClear.addEventListener('click', () => {
+      searchInput.value = '';
+      searchClear.classList.remove('visible');
+      searchResults.classList.remove('active');
+      mainContent.style.display = 'block';
+      searchInput.focus();
+    });
+
     async function doSearch(query) {
       searchResults.classList.add('active');
       mainContent.style.display = 'none';
-      searchResultsList.innerHTML = '<div class="loading" style="padding:24px"><div class="loading-spinner"></div></div>';
+      searchResultsList.innerHTML = '<div style="text-align:center;padding:24px"><span class="mini-spinner"></span></div>';
+      searchResultHeader.textContent = 'Searching...';
 
       try {
         const res = await fetch(API + '/api/search?q=' + encodeURIComponent(query) + '&limit=30');
@@ -685,8 +988,11 @@
 
         if (!data.results || data.results.length === 0) {
           searchResultsList.innerHTML = '<div class="no-results">No results found</div>';
+          searchResultHeader.textContent = 'Search Results';
           return;
         }
+
+        searchResultHeader.textContent = `${data.results.length} result${data.results.length !== 1 ? 's' : ''}`;
 
         let html = '';
         for (const r of data.results) {
@@ -696,7 +1002,7 @@
           html += `
             <div class="search-result" data-slug="${escapeAttr(r.slug || '')}">
               <div style="display:flex;align-items:flex-start;gap:10px">
-                <span style="font-size:18px">${icon}</span>
+                <span style="font-size:16px">${icon}</span>
                 <div style="flex:1;min-width:0">
                   <div class="search-result-title">${escapeHtml(r.title || formatSlug(r.slug || ''))}</div>
                   <div class="search-result-slug">${escapeHtml(r.slug || '')}</div>
@@ -709,54 +1015,54 @@
 
         searchResultsList.innerHTML = html;
 
-        // Add click handlers for search results
         searchResultsList.querySelectorAll('.search-result').forEach(el => {
           el.addEventListener('click', async () => {
             const slug = el.dataset.slug;
             if (!slug) return;
 
-            // Navigate to the item by clearing search and expanding
             searchInput.value = '';
+            searchClear.classList.remove('visible');
             searchResults.classList.remove('active');
             mainContent.style.display = 'block';
 
-            // Find and expand the matching card
             const card = document.querySelector(`.card[data-slug="${CSS.escape(slug)}"]`);
             if (card) {
+              // Set appropriate filter
+              const category = card.dataset.category;
+              if (activeFilter !== 'all' && activeFilter !== category) {
+                setActiveFilter('all');
+              }
+
               card.scrollIntoView({ behavior: 'smooth', block: 'center' });
               if (!card.classList.contains('expanded')) {
-                toggleCard(card);
+                toggleCard(card, true);
               }
             }
           });
         });
       } catch (err) {
         searchResultsList.innerHTML = '<div class="no-results" style="color:#f87171">Search failed</div>';
+        searchResultHeader.textContent = 'Search Results';
       }
     }
 
     // ── Helpers ────────────────────────────────────────────────────────
     function parseBookTitle(title, slug) {
-      // Try "Book Title by Author" format
       const byMatch = title.match(/^(.+?)\s+by\s+(.+)$/i);
       if (byMatch) {
         return { title: byMatch[1].trim(), author: byMatch[2].trim() };
       }
-
-      // Try to extract from slug: kindle/author/title
       const parts = slug.split('/');
       if (parts.length >= 3) {
         return {
           title: title || parts.slice(2).join(' ').replace(/-/g, ' '),
-          author: parts[1].replace(/-/g, ' ')
+          author: parts[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
         };
       }
-
       return { title: title, author: null };
     }
 
     function extractDomain(slug) {
-      // web/example-com/path -> example.com
       const parts = slug.split('/');
       if (parts.length >= 2) {
         return parts[1].replace(/-/g, '.');
