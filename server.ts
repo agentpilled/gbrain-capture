@@ -382,11 +382,27 @@ async function obsidianSync(slug: string, markdown: string) {
     const titleMatch = markdown.match(/^title:\s*"?(.+?)"?\s*$/m);
     const title = titleMatch ? titleMatch[1] : slug.split('/').pop()?.replace(/-/g, ' ') || slug;
 
+    // Guard against empty/junk titles that would create files like "--.md"
+    if (!title || title.replace(/[\s\-]+/g, '').length === 0) {
+      console.warn(`[obsidian] skipping sync for "${slug}" — empty or invalid title`);
+      return;
+    }
+
     // Determine subfolder (kindle, web, pdf, or youtube)
     const subfolder = slug.startsWith('kindle/') ? 'kindle' : slug.startsWith('pdf/') ? 'pdf' : slug.startsWith('youtube/') ? 'youtube' : 'web';
 
-    // Clean filename (remove chars not allowed in filenames)
-    const cleanTitle = title.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
+    // Clean filename: replace colons with " -", remove illegal chars, normalize whitespace
+    let cleanTitle = title
+      .replace(/:/g, ' -')           // colons → " -"
+      .replace(/[/\\?%*|"<>]/g, '')  // remove other illegal filename chars
+      .replace(/\s+/g, ' ')          // collapse whitespace
+      .trim();
+
+    // Final guard: if cleaning emptied the title, use slug
+    if (!cleanTitle || cleanTitle.replace(/[\s\-]+/g, '').length === 0) {
+      cleanTitle = slug.split('/').pop()?.replace(/-/g, ' ')?.trim() || 'untitled';
+    }
+
     const filename = cleanTitle.slice(0, 100) + '.md';
 
     const dirPath = `${vaultPath}/${folder}/${subfolder}`;
@@ -831,6 +847,15 @@ async function handleCaptureYouTube(req: Request): Promise<Response> {
     return corsResponse(400, { error: 'Missing required field: title' });
   }
 
+  // Check if yt-dlp is available before attempting extraction
+  if (!ytDlpAvailable) {
+    // Re-check in case it was installed after server start
+    ytDlpAvailable = await checkYtDlp();
+    if (!ytDlpAvailable) {
+      return corsResponse(422, { error: 'yt-dlp is not installed. Run: brew install yt-dlp' });
+    }
+  }
+
   // Extract transcript server-side via yt-dlp (robust, handles auth/tokens)
   let transcript: Array<{ start: number; text: string }> = [];
   try {
@@ -1004,97 +1029,179 @@ function parsePort(args: string[]): number {
   return DEFAULT_PORT;
 }
 
+// ---------------------------------------------------------------------------
+// yt-dlp availability check
+// ---------------------------------------------------------------------------
+
+let ytDlpAvailable = false;
+
+async function checkYtDlp(): Promise<boolean> {
+  try {
+    const proc = Bun.spawn(['which', 'yt-dlp'], { stdout: 'pipe', stderr: 'pipe' });
+    const exitCode = await proc.exited;
+    return exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostics endpoint
+// ---------------------------------------------------------------------------
+
+async function handleDiagnostics(): Promise<Response> {
+  const hasOpenaiKey = !!process.env.OPENAI_API_KEY;
+
+  let obsidianEnabled = false;
+  try {
+    const configFile = import.meta.dir + '/.clipbrain.json';
+    const config = JSON.parse(await Bun.file(configFile).text());
+    obsidianEnabled = !!config.obsidian?.enabled;
+  } catch {}
+
+  let gbrainOk = false;
+  let captures = 0;
+  try {
+    const output = await gbrainExec(['list', '--limit', '1']);
+    gbrainOk = true;
+    // Get total count from stats
+    try {
+      const statsOutput = await gbrainExec(['list', '--limit', '10000']);
+      captures = statsOutput.trim().split('\n').filter(Boolean).length;
+    } catch {}
+  } catch {}
+
+  let processingEnabled = false;
+  try {
+    const configFile = import.meta.dir + '/.clipbrain.json';
+    const config = JSON.parse(await Bun.file(configFile).text());
+    processingEnabled = !!config.processing?.enabled && hasOpenaiKey;
+  } catch {}
+
+  return corsResponse(200, {
+    server: 'ok',
+    openaiKey: hasOpenaiKey,
+    ytDlp: ytDlpAvailable,
+    obsidian: obsidianEnabled,
+    gbrain: gbrainOk,
+    captures,
+    processing: processingEnabled,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Server
+// ---------------------------------------------------------------------------
+
 const port = parsePort(process.argv.slice(2));
 
-const server = Bun.serve({
-  port,
-  fetch(req) {
-    const url = new URL(req.url);
-
-    // Preflight
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
+if (import.meta.main) {
+  // Check yt-dlp availability at startup (non-blocking)
+  checkYtDlp().then(available => {
+    ytDlpAvailable = available;
+    if (!available) {
+      console.warn('[startup] yt-dlp not found in PATH. YouTube transcript capture will not work.');
+      console.warn('[startup] Install with: brew install yt-dlp');
+    } else {
+      console.log('[startup] yt-dlp available');
     }
+  });
 
-    // Dashboard
-    if (url.pathname === '/' && req.method === 'GET') {
-      const html = Bun.file(import.meta.dir + '/dashboard.html');
-      return new Response(html, { headers: { 'Content-Type': 'text/html' } });
-    }
+  const server = Bun.serve({
+    port,
+    fetch(req) {
+      const url = new URL(req.url);
 
-    // Health check
-    if (url.pathname === '/health' && req.method === 'GET') {
-      return corsResponse(200, { status: 'ok' });
-    }
+      // Preflight
+      if (req.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: CORS_HEADERS });
+      }
 
-    // Capture endpoint
-    if (url.pathname === '/api/capture' && req.method === 'POST') {
-      return handleCapture(req);
-    }
+      // Dashboard
+      if (url.pathname === '/' && req.method === 'GET') {
+        const html = Bun.file(import.meta.dir + '/dashboard.html');
+        return new Response(html, { headers: { 'Content-Type': 'text/html' } });
+      }
 
-    // YouTube transcript capture
-    if (url.pathname === '/api/capture-youtube' && req.method === 'POST') {
-      return handleCaptureYouTube(req);
-    }
+      // Health check
+      if (url.pathname === '/health' && req.method === 'GET') {
+        return corsResponse(200, { status: 'ok' });
+      }
 
-    // Search endpoint
-    if (url.pathname === '/api/search' && req.method === 'GET') {
-      return handleSearch(req);
-    }
+      // Diagnostics endpoint
+      if (url.pathname === '/api/diagnostics' && req.method === 'GET') {
+        return handleDiagnostics();
+      }
 
-    // Recent captures endpoint
-    if (url.pathname === '/api/recent' && req.method === 'GET') {
-      return handleRecent(req);
-    }
+      // Capture endpoint
+      if (url.pathname === '/api/capture' && req.method === 'POST') {
+        return handleCapture(req);
+      }
 
-    // Stats endpoint
-    if (url.pathname === '/api/stats' && req.method === 'GET') {
-      return handleStats();
-    }
+      // YouTube transcript capture
+      if (url.pathname === '/api/capture-youtube' && req.method === 'POST') {
+        return handleCaptureYouTube(req);
+      }
 
-    // Page content endpoint
-    if (url.pathname === '/api/page' && req.method === 'GET') {
-      return handlePage(req);
-    }
+      // Search endpoint
+      if (url.pathname === '/api/search' && req.method === 'GET') {
+        return handleSearch(req);
+      }
 
-    // Config endpoints
-    if (url.pathname === '/api/config' && req.method === 'GET') {
-      return handleGetConfig();
-    }
-    if (url.pathname === '/api/config' && req.method === 'POST') {
-      return handlePostConfig(req);
-    }
+      // Recent captures endpoint
+      if (url.pathname === '/api/recent' && req.method === 'GET') {
+        return handleRecent(req);
+      }
 
-    // PDF upload
-    if (url.pathname === '/api/upload-pdf' && req.method === 'GET') {
-      return handleUploadPdfGet();
-    }
-    if (url.pathname === '/api/upload-pdf' && req.method === 'POST') {
-      return handleUploadPdf(req);
-    }
+      // Stats endpoint
+      if (url.pathname === '/api/stats' && req.method === 'GET') {
+        return handleStats();
+      }
 
-    // Obsidian bulk sync
-    if (url.pathname === '/api/obsidian-sync-all' && req.method === 'POST') {
-      return handleObsidianSyncAll();
-    }
+      // Page content endpoint
+      if (url.pathname === '/api/page' && req.method === 'GET') {
+        return handlePage(req);
+      }
 
-    // Connections endpoint
-    if (url.pathname === '/api/connections' && req.method === 'GET') {
-      return handleConnections(req);
-    }
+      // Config endpoints
+      if (url.pathname === '/api/config' && req.method === 'GET') {
+        return handleGetConfig();
+      }
+      if (url.pathname === '/api/config' && req.method === 'POST') {
+        return handlePostConfig(req);
+      }
 
-    // Graph endpoint
-    if (url.pathname === '/api/graph' && req.method === 'GET') {
-      return handleGraph();
-    }
+      // PDF upload
+      if (url.pathname === '/api/upload-pdf' && req.method === 'GET') {
+        return handleUploadPdfGet();
+      }
+      if (url.pathname === '/api/upload-pdf' && req.method === 'POST') {
+        return handleUploadPdf(req);
+      }
 
-    // Reprocess all endpoint
-    if (url.pathname === '/api/reprocess-all' && req.method === 'POST') {
-      return handleReprocessAll();
-    }
+      // Obsidian bulk sync
+      if (url.pathname === '/api/obsidian-sync-all' && req.method === 'POST') {
+        return handleObsidianSyncAll();
+      }
 
-    return corsResponse(404, { error: 'Not found' });
-  },
-});
+      // Connections endpoint
+      if (url.pathname === '/api/connections' && req.method === 'GET') {
+        return handleConnections(req);
+      }
 
-console.log(`ClipBrain server listening on http://localhost:${server.port}`);
+      // Graph endpoint
+      if (url.pathname === '/api/graph' && req.method === 'GET') {
+        return handleGraph();
+      }
+
+      // Reprocess all endpoint
+      if (url.pathname === '/api/reprocess-all' && req.method === 'POST') {
+        return handleReprocessAll();
+      }
+
+      return corsResponse(404, { error: 'Not found' });
+    },
+  });
+
+  console.log(`ClipBrain server listening on http://localhost:${server.port}`);
+}

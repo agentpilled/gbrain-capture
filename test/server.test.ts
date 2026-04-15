@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, mock } from 'bun:test';
 import { canonicalizeUrl, slugFromUrl, buildMarkdown } from '../server.ts';
+import { $ } from 'bun';
 
 // ---------------------------------------------------------------------------
 // Helper: minimal valid PDF buffer with extractable text
@@ -166,9 +167,32 @@ describe('buildMarkdown', () => {
 
 describe('HTTP server', () => {
   const BASE = `http://localhost:19285`;
+  let serverProc: ReturnType<typeof Bun.spawn> | null = null;
 
-  // The server is started by importing server.ts above (side-effect).
-  // In CI you'd start it separately; here we rely on the import having started it.
+  beforeAll(async () => {
+    // Start the server as a subprocess (import.meta.main guard means import alone won't start it)
+    serverProc = Bun.spawn(['bun', 'run', 'server.ts'], {
+      cwd: import.meta.dir + '/..',
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    // Wait for the server to be ready (up to 5 seconds)
+    for (let i = 0; i < 50; i++) {
+      try {
+        const resp = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(200) });
+        if (resp.ok) break;
+      } catch {}
+      await new Promise(r => setTimeout(r, 100));
+    }
+  });
+
+  afterAll(() => {
+    if (serverProc) {
+      serverProc.kill();
+      serverProc = null;
+    }
+  });
 
   test('GET /health returns ok', async () => {
     const res = await fetch(`${BASE}/health`);

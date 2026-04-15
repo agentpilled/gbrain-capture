@@ -47,6 +47,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (msg.type === "content-script-error") {
+    console.error("ClipBrain content script error:", msg.error);
+    notifyTab(sender.tab?.id, false, "ClipBrain: " + (msg.error || "Failed to extract page content"));
+    setTempBadge("!", "#cc0000", 3000);
+    return;
+  }
 });
 
 async function handleCapture(data, tabId) {
@@ -69,14 +76,20 @@ async function handleCapture(data, tabId) {
       await incrementCaptureCount();
       notifyTab(tabId, true);
     } else {
-      throw new Error(`HTTP ${resp.status}`);
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body.error || `Server returned HTTP ${resp.status}`);
     }
   } catch (err) {
-    console.warn("ClipBrain unreachable, queuing capture:", err.message);
-    await enqueue(payload);
+    console.warn("ClipBrain capture failed:", err.message);
+    // If it looks like a network error (server unreachable), queue for retry
+    if (err.message.includes("fetch") || err.message.includes("Failed") || err.message.includes("NetworkError")) {
+      await enqueue(payload);
+      notifyTab(tabId, false, "ClipBrain offline — capture queued for retry");
+      ensureAlarm();
+    } else {
+      notifyTab(tabId, false, "Capture failed: " + err.message);
+    }
     setTempBadge("!", "#cc0000", 3000);
-    notifyTab(tabId, false);
-    ensureAlarm();
   }
 }
 
@@ -102,14 +115,19 @@ async function handleYouTubeCapture(data, tabId) {
       const body = await resp.json().catch(() => ({}));
       notifyTab(tabId, false, body.error || "No transcript available for this video");
     } else {
-      throw new Error(`HTTP ${resp.status}`);
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body.error || `Server returned HTTP ${resp.status}`);
     }
   } catch (err) {
-    console.warn("ClipBrain YouTube capture failed, queuing:", err.message);
-    await enqueue({ ...payload, _type: "youtube" });
+    console.warn("ClipBrain YouTube capture failed:", err.message);
+    if (err.message.includes("fetch") || err.message.includes("Failed") || err.message.includes("NetworkError")) {
+      await enqueue({ ...payload, _type: "youtube" });
+      notifyTab(tabId, false, "ClipBrain offline — capture queued for retry");
+      ensureAlarm();
+    } else {
+      notifyTab(tabId, false, err.message || "YouTube capture failed");
+    }
     setTempBadge("!", "#cc0000", 3000);
-    notifyTab(tabId, false);
-    ensureAlarm();
   }
 }
 

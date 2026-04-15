@@ -250,6 +250,30 @@ async function init() {
     return;
   }
 
+  // Fetch diagnostics and show warnings if needed
+  try {
+    const diag = await apiFetch("/api/diagnostics");
+    const warnings = [];
+    if (!diag.openaiKey) {
+      warnings.push("OPENAI_API_KEY not set — smart processing disabled");
+    }
+    if (!diag.ytDlp) {
+      warnings.push("yt-dlp not installed — YouTube capture unavailable");
+    }
+    if (warnings.length > 0) {
+      let warningBar = document.getElementById("warningBar");
+      if (!warningBar) {
+        warningBar = document.createElement("div");
+        warningBar.id = "warningBar";
+        warningBar.style.cssText = "padding:6px 16px;font-size:11px;color:#ca8a04;background:#1a1a2e;border-bottom:1px solid #2a2a3e;";
+        $onlineContent.prepend(warningBar);
+      }
+      warningBar.innerHTML = warnings.map(w => '<div style="padding:2px 0">' + w + '</div>').join("");
+    }
+  } catch {
+    // Diagnostics endpoint not available — skip warnings silently
+  }
+
   // Check onboarding
   const { onboardingDone } = await chrome.storage.local.get("onboardingDone");
 

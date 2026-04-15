@@ -100,8 +100,24 @@ async function obsidianSync(slug: string, markdown: string) {
     const titleMatch = markdown.match(/^title:\s*"?(.+?)"?\s*$/m);
     const title = titleMatch ? titleMatch[1] : slug.split('/').pop()?.replace(/-/g, ' ') || slug;
 
+    // Guard against empty/junk titles
+    if (!title || title.replace(/[\s\-]+/g, '').length === 0) {
+      console.warn(`[post-process] obsidian: skipping sync for "${slug}" — empty or invalid title`);
+      return;
+    }
+
     const subfolder = slug.startsWith('kindle/') ? 'kindle' : slug.startsWith('pdf/') ? 'pdf' : slug.startsWith('youtube/') ? 'youtube' : 'web';
-    const cleanTitle = title.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
+    let cleanTitle = title
+      .replace(/:/g, ' -')           // colons → " -"
+      .replace(/[/\\?%*|"<>]/g, '')  // remove other illegal filename chars
+      .replace(/\s+/g, ' ')          // collapse whitespace
+      .trim();
+
+    // Final guard: if cleaning emptied the title, use slug
+    if (!cleanTitle || cleanTitle.replace(/[\s\-]+/g, '').length === 0) {
+      cleanTitle = slug.split('/').pop()?.replace(/-/g, ' ')?.trim() || 'untitled';
+    }
+
     const filename = cleanTitle.slice(0, 100) + '.md';
 
     const dirPath = `${vaultPath}/${folder}/${subfolder}`;
@@ -128,34 +144,49 @@ export async function callOpenAI(content: string, relatedTitles: string[]): Prom
   const config = await loadConfig();
   const model = config?.model || 'gpt-4o-mini';
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{
-        role: 'system',
-        content: 'You are a knowledge librarian. Given content and a list of existing items in the knowledge base, generate: 1) a 2-3 sentence summary, 2) 3-5 semantic tags (single words or short phrases, lowercase), 3) which existing items are genuinely related and why (1 sentence each). Respond in JSON format: { "summary": "...", "tags": ["..."], "connections": [{"title": "...", "reason": "..."}] }'
-      }, {
-        role: 'user',
-        content: `Content to process:\n${content.slice(0, 2000)}\n\nExisting items in knowledge base:\n${relatedTitles.join('\n')}`
-      }],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 500,
-    }),
+  const MAX_RETRIES = 2;
+  const requestBody = JSON.stringify({
+    model,
+    messages: [{
+      role: 'system',
+      content: 'You are a knowledge librarian. Given content and a list of existing items in the knowledge base, generate: 1) a 2-3 sentence summary, 2) 3-5 semantic tags (single words or short phrases, lowercase), 3) which existing items are genuinely related and why (1 sentence each). Respond in JSON format: { "summary": "...", "tags": ["..."], "connections": [{"title": "...", "reason": "..."}] }'
+    }, {
+      role: 'user',
+      content: `Content to process:\n${content.slice(0, 2000)}\n\nExisting items in knowledge base:\n${relatedTitles.join('\n')}`
+    }],
+    response_format: { type: 'json_object' },
+    temperature: 0.3,
+    max_tokens: 500,
   });
 
-  if (!response.ok) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: requestBody,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return parseOpenAIResponse(data);
+    }
+
+    // Rate limited — retry with exponential backoff
+    if (response.status === 429 && attempt < MAX_RETRIES) {
+      const delay = (attempt + 1) * 60_000; // 60s, 120s
+      console.warn(`[post-process] OpenAI rate limited (429), retrying in ${delay / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
+    }
+
     const errText = await response.text();
     throw new Error(`OpenAI API error ${response.status}: ${errText}`);
   }
 
-  const data = await response.json();
-  return parseOpenAIResponse(data);
+  return null;
 }
 
 // ---------------------------------------------------------------------------

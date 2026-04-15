@@ -125,5 +125,6 @@ Everything runs locally. No data leaves your machine except for generating embed
 
 - [Bun](https://bun.sh)
 - Chrome or Chromium
-- `OPENAI_API_KEY` environment variable (optional — enables AI summaries, tags, and connections)
+- `OPENAI_API_KEY` environment variable (for embeddings and smart processing)
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) (optional, for YouTube transcript capture)
 - Obsidian (optional, for vault sync)

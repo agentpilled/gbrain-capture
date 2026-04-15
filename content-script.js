@@ -2,6 +2,7 @@
 // Runs in the page context (has DOM access). Uses Readability to extract article content.
 
 (function () {
+  try {
   // ─── YouTube detection ──────────────────────────────────────────────
   function isYouTubeVideo() {
     const hostname = location.hostname;
@@ -76,4 +77,17 @@
     content: article?.textContent || document.body?.innerText?.slice(0, 50000) || null,
     selection: selection,
   });
+
+  } catch (err) {
+    console.error("ClipBrain: content script error:", err);
+    // Notify the service worker so it can show an error toast
+    try {
+      chrome.runtime.sendMessage({
+        type: "content-script-error",
+        error: err.message || "Unknown error extracting page content",
+      });
+    } catch (_) {
+      // If we can't even send the message, there's nothing more to do
+    }
+  }
 })();

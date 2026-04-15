@@ -149,6 +149,20 @@ if [ -z "$CONFIGURED" ]; then
   echo "  ⚠ No AI tools detected. Install Claude Code or OpenClaw and re-run ./setup.sh"
 fi
 
+# ─── Step 4b: Install yt-dlp for YouTube support ────────────────────────────
+echo ""
+echo "→ Checking for yt-dlp..."
+if ! command -v yt-dlp &>/dev/null; then
+  echo "  → Installing yt-dlp (for YouTube transcripts)..."
+  if command -v brew &>/dev/null; then
+    brew install yt-dlp 2>/dev/null || echo "  ⚠ Could not install yt-dlp. YouTube capture won't work."
+  else
+    echo "  ⚠ yt-dlp not found. Install with: brew install yt-dlp (YouTube capture won't work without it)"
+  fi
+else
+  echo "  ✓ yt-dlp"
+fi
+
 # ─── Step 5: Detect Obsidian ─────────────────────────────────────────────────
 echo ""
 echo "→ Checking for Obsidian..."
@@ -307,22 +321,32 @@ if echo "$CONFIGURED" | grep -q "claude"; then
   echo "  ✓ Claude Code connected"
 fi
 if echo "$CONFIGURED" | grep -q "openclaw"; then
-  echo "  ✓ OpenClaw connected"
+  for config in "${OPENCLAW_CONFIGS[@]}"; do
+    OPENCLAW_DIR_NAME=$(basename "$(dirname "$config")" | sed 's/^\.//')
+    echo "  ✓ OpenClaw connected ($OPENCLAW_DIR_NAME)"
+  done
 fi
 if [ -n "$OBSIDIAN_VAULT" ]; then
   SHORT_VAULT=$(echo "$OBSIDIAN_VAULT" | sed "s|^$HOME|~|")
-  echo "  ✓ Obsidian synced to $SHORT_VAULT/ClipBrain"
+  echo "  ✓ Obsidian: $SHORT_VAULT/ClipBrain"
 fi
 if [ -n "$OPENAI_API_KEY" ]; then
-  echo "  ✓ Smart processing enabled (GPT-4o-mini)"
+  echo "  ✓ Smart processing (GPT-4o-mini)"
 else
   echo "  ○ Smart processing disabled (set OPENAI_API_KEY to enable)"
 fi
+if command -v yt-dlp &>/dev/null; then
+  echo "  ✓ YouTube transcripts (yt-dlp)"
+else
+  echo "  ○ YouTube transcripts disabled (install yt-dlp to enable)"
+fi
 echo ""
-echo "Load the Chrome extension:"
-echo "  chrome://extensions → Developer mode → Load unpacked → select this folder"
+echo "  Load the Chrome extension:"
+echo "    chrome://extensions → Developer mode → Load unpacked → this folder"
 echo ""
-echo "Then:"
-echo "  • Press Cmd+Shift+S on any page to capture it"
-echo "  • Go to read.amazon.com/notebook to import Kindle highlights"
-echo "  • Open localhost:19285 to browse your brain"
+echo "  Then:"
+echo "    • Cmd+Shift+S on any page to capture"
+echo "    • read.amazon.com/notebook to import Kindle highlights"
+echo "    • Drag PDFs onto localhost:19285"
+echo "    • Cmd+Shift+S on YouTube videos for transcripts"
+echo "    • localhost:19285 to browse your brain"
