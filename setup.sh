@@ -138,17 +138,68 @@ if [ -z "$CONFIGURED" ]; then
   echo "  ⚠ No AI tools detected. Run ./setup-mcp.sh manually to configure."
 fi
 
+# ─── Step 5: Install auto-start (macOS) ──────────────────────────────────────
+if [ "$(uname)" = "Darwin" ]; then
+  echo ""
+  echo "→ Installing background service..."
+
+  # Update plist with correct paths
+  PLIST_SRC="$SCRIPT_DIR/config/com.gbrain.serve.plist"
+  PLIST_DST="$HOME/Library/LaunchAgents/com.gbrain.serve.plist"
+  BUN_PATH="$(which bun)"
+
+  # Generate plist with current paths
+  cat > "$PLIST_DST" <<PLISTEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gbrain.serve</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$BUN_PATH</string>
+        <string>run</string>
+        <string>server.ts</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>$(dirname $BUN_PATH):/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>$HOME</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>WorkingDirectory</key>
+    <string>$SCRIPT_DIR</string>
+    <key>StandardOutPath</key>
+    <string>$HOME/Library/Logs/gbrain-capture.log</string>
+    <key>StandardErrorPath</key>
+    <string>$HOME/Library/Logs/gbrain-capture.log</string>
+</dict>
+</plist>
+PLISTEOF
+
+  # Load the service (unload first if exists)
+  launchctl unload "$PLIST_DST" 2>/dev/null || true
+  launchctl load "$PLIST_DST"
+  echo "  ✓ Capture server (auto-starts on login)"
+fi
+
 # ─── Done ────────────────────────────────────────────────────────────────────
 echo ""
 echo "✅ Setup complete!"
 echo ""
-echo "Start the server:"
-echo "  bun run serve"
+echo "One last step — load the Chrome extension:"
+echo "  1. Open chrome://extensions"
+echo "  2. Turn on Developer mode (top right)"
+echo "  3. Click 'Load unpacked' → select this folder"
 echo ""
-echo "Load the Chrome extension:"
-echo "  chrome://extensions → Developer mode → Load unpacked → select this folder"
-echo ""
+echo "The capture server is running in the background."
 if [ -n "$CONFIGURED" ]; then
-  echo "Your AI is connected. After starting the server, try asking:"
+  echo "Your AI is already connected. Try asking:"
   echo '  "What did I highlight in my Kindle books?"'
 fi
