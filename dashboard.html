@@ -419,7 +419,21 @@
       <span id="obsidianStatus">Obsidian: checking...</span>
     </div>
     <div class="status-bar-right">
-      <button class="sync-all-btn" id="syncAllBtn" style="display:none;">Sync all to Obsidian</button>
+      <button class="sync-all-btn" id="connectObsidianBtn" style="display:none;">Connect Obsidian</button>
+      <button class="sync-all-btn" id="syncAllBtn" style="display:none;">Sync all</button>
+    </div>
+  </div>
+
+  <!-- Obsidian connect modal -->
+  <div id="obsidianModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;">
+    <div style="background:#262626;border:1px solid #333;border-radius:12px;padding:24px;max-width:460px;width:90%;margin:auto;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+      <h3 style="font-size:16px;font-weight:600;color:#dcddde;margin-bottom:12px;">Connect Obsidian Vault</h3>
+      <p style="font-size:13px;color:#999;margin-bottom:16px;line-height:1.5;">Enter the path to your Obsidian vault folder. ClipBrain will create a <code style="background:#333;padding:2px 6px;border-radius:3px;font-size:12px;">ClipBrain/</code> folder inside it with all your captures as markdown files.</p>
+      <input type="text" id="vaultPathInput" placeholder="/Users/you/Documents/Obsidian Vault" style="width:100%;padding:10px 12px;background:#1e1e1e;border:1px solid #333;border-radius:8px;color:#dcddde;font-size:13px;font-family:SF Mono,Fira Code,monospace;outline:none;margin-bottom:16px;" />
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="modalCancel" style="padding:8px 16px;background:transparent;border:1px solid #333;color:#999;border-radius:6px;font-size:13px;cursor:pointer;">Cancel</button>
+        <button id="modalConnect" style="padding:8px 16px;background:#7f6df2;border:none;color:#fff;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Connect</button>
+      </div>
     </div>
   </div>
 
@@ -753,6 +767,9 @@
       const obsidianDot = $('#obsidianDot');
       const obsidianStatus = $('#obsidianStatus');
       const syncAllBtn = $('#syncAllBtn');
+      const connectBtn = $('#connectObsidianBtn');
+      const modal = document.getElementById('obsidianModal');
+      const vaultInput = document.getElementById('vaultPathInput');
 
       async function loadObsidianStatus() {
         try {
@@ -760,37 +777,88 @@
           const obs = config.obsidian || {};
           if (obs.enabled && obs.vaultPath) {
             obsidianDot.classList.add('connected');
-            // Shorten path for display: replace home dir with ~
             const shortPath = obs.vaultPath.replace(/^\/Users\/[^/]+/, '~');
-            obsidianStatus.textContent = `Obsidian: synced to ${shortPath}/${obs.folder || 'ClipBrain'}`;
+            obsidianStatus.textContent = `Obsidian: ${shortPath}/${obs.folder || 'ClipBrain'}`;
             syncAllBtn.style.display = '';
+            connectBtn.style.display = 'none';
           } else {
             obsidianDot.classList.remove('connected');
             obsidianStatus.textContent = 'Obsidian: not connected';
             syncAllBtn.style.display = 'none';
+            connectBtn.style.display = '';
           }
         } catch {
           obsidianDot.classList.remove('connected');
           obsidianStatus.textContent = 'Obsidian: not connected';
           syncAllBtn.style.display = 'none';
+          connectBtn.style.display = '';
         }
       }
 
+      // Connect Obsidian modal
+      connectBtn.addEventListener('click', () => {
+        modal.style.display = 'block';
+        vaultInput.focus();
+      });
+
+      document.getElementById('modalCancel').addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+      });
+
+      document.getElementById('modalConnect').addEventListener('click', async () => {
+        const path = vaultInput.value.trim();
+        if (!path) return;
+
+        const btn = document.getElementById('modalConnect');
+        btn.textContent = 'Connecting...';
+        btn.disabled = true;
+
+        try {
+          const res = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              obsidian: { enabled: true, vaultPath: path, folder: 'ClipBrain' }
+            })
+          });
+
+          if (res.ok) {
+            modal.style.display = 'none';
+            // Sync all existing captures
+            obsidianStatus.textContent = 'Syncing captures to Obsidian...';
+            await fetch('/api/obsidian-sync-all', { method: 'POST' });
+            loadObsidianStatus();
+          } else {
+            alert('Failed to save config');
+          }
+        } catch (err) {
+          alert('Error: ' + err.message);
+        }
+
+        btn.textContent = 'Connect';
+        btn.disabled = false;
+      });
+
+      // Sync all button
       syncAllBtn.addEventListener('click', async () => {
         syncAllBtn.disabled = true;
         syncAllBtn.textContent = 'Syncing...';
         try {
           const r = await fetch('/api/obsidian-sync-all', { method: 'POST' });
           const res = await r.json();
-          syncAllBtn.textContent = `Done (${res.synced || 0} synced)`;
+          syncAllBtn.textContent = `Done (${res.synced || 0})`;
           setTimeout(() => {
-            syncAllBtn.textContent = 'Sync all to Obsidian';
+            syncAllBtn.textContent = 'Sync all';
             syncAllBtn.disabled = false;
           }, 3000);
         } catch {
-          syncAllBtn.textContent = 'Sync failed';
+          syncAllBtn.textContent = 'Failed';
           setTimeout(() => {
-            syncAllBtn.textContent = 'Sync all to Obsidian';
+            syncAllBtn.textContent = 'Sync all';
             syncAllBtn.disabled = false;
           }, 3000);
         }
