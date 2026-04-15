@@ -304,7 +304,18 @@ PLISTEOF
   # Load the service (unload first if exists)
   launchctl unload "$PLIST_DST" 2>/dev/null || true
   launchctl load "$PLIST_DST"
-  echo "  ✓ Capture server (auto-starts on login)"
+
+  echo "→ Waiting for server to start..."
+  for i in $(seq 1 15); do
+    if curl -s --max-time 2 http://localhost:19285/health > /dev/null 2>&1; then
+      echo "  ✓ Server running"
+      break
+    fi
+    if [ $i -eq 15 ]; then
+      echo "  ⚠ Server didn't start within 15 seconds. Check ~/Library/Logs/gbrain-capture.log"
+    fi
+    sleep 1
+  done
 fi
 
 # ─── Done ────────────────────────────────────────────────────────────────────
@@ -350,3 +361,13 @@ echo "    • read.amazon.com/notebook to import Kindle highlights"
 echo "    • Drag PDFs onto localhost:19285"
 echo "    • Cmd+Shift+S on YouTube videos for transcripts"
 echo "    • localhost:19285 to browse your brain"
+
+# Open Chrome extensions page for easy loading
+if [ "$(uname)" = "Darwin" ]; then
+  echo ""
+  echo "Opening Chrome extensions page..."
+  open -a "Google Chrome" "chrome://extensions" 2>/dev/null || true
+
+  # Also reveal the folder in Finder for drag & drop
+  open -R "$SCRIPT_DIR" 2>/dev/null || true
+fi

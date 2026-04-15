@@ -28,11 +28,14 @@
 
     <div id="step2" class="onboarding-step">
       <h2>Capture your first page</h2>
-      <p>Press the shortcut on any page to save it:</p>
+      <p>Go to any article and press the shortcut. I'll detect it automatically.</p>
       <div class="shortcut-visual">
         <kbd>&#x2318;</kbd><kbd>Shift</kbd><kbd>S</kbd>
       </div>
-      <p>Or import your Kindle highlights:</p>
+      <p id="step2-polling" style="color:#666666;font-size:12px;margin-top:4px;display:none">Listening for your first capture...</p>
+      <p style="color:#666666;font-size:12px;margin-top:8px">Or try capturing this article to test:</p>
+      <p><a href="https://paulgraham.com/startupideas.html" target="_blank">How to Get Startup Ideas — Paul Graham</a></p>
+      <p style="margin-top:8px">Or import your Kindle highlights:</p>
       <p><a href="https://read.amazon.com/notebook" target="_blank">read.amazon.com/notebook</a></p>
       <div class="onboarding-actions">
         <button class="btn btn-primary" id="onb-next2">I've captured something</button>
@@ -41,9 +44,16 @@
     </div>
 
     <div id="step3" class="onboarding-step">
-      <h2>You're all set!</h2>
-      <p>Your AI is already connected. Start capturing content, then ask your AI about what you've read.</p>
-      <p style="color:#7f6df2;font-size:13px">Try: "What did I highlight in my Kindle books?"</p>
+      <h2 id="step3-title">You're all set!</h2>
+      <p id="step3-subtitle">Your AI is already connected. Start capturing content, then ask your AI about what you've read.</p>
+      <div id="step3-prompt" style="display:none;margin:12px 0;">
+        <div class="cmd-box" id="step3-prompt-box" title="Click to copy">
+          <span class="copy-icon">&#x2398;</span>
+          <span id="step3-prompt-text"></span>
+        </div>
+        <div class="copied-toast" id="step3-copied">Copied!</div>
+      </div>
+      <p id="step3-fallback-prompt" style="color:#7f6df2;font-size:13px">Try: "What did I highlight in my Kindle books?"</p>
       <div class="onboarding-actions">
         <button class="btn btn-primary" id="onb-done">Let's go</button>
       </div>

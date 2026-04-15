@@ -1078,6 +1078,14 @@ async function handleDiagnostics(): Promise<Response> {
     processingEnabled = !!config.processing?.enabled && hasOpenaiKey;
   } catch {}
 
+  // Check if MCP is configured in Claude Code
+  let mcpConfigured = false;
+  try {
+    const settingsPath = require('os').homedir() + '/.claude/settings.json';
+    const settings = JSON.parse(require('fs').readFileSync(settingsPath, 'utf-8'));
+    mcpConfigured = !!settings?.mcpServers?.gbrain;
+  } catch {}
+
   return corsResponse(200, {
     server: 'ok',
     openaiKey: hasOpenaiKey,
@@ -1086,6 +1094,7 @@ async function handleDiagnostics(): Promise<Response> {
     gbrain: gbrainOk,
     captures,
     processing: processingEnabled,
+    mcpConfigured,
   });
 }
 

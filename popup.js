@@ -127,23 +127,83 @@ function setupCopyBox(boxId, toastId) {
 
 // ─── Onboarding ──────────────────────────────────────────────────────
 
+let step2PollTimer = null;
+
+function stopStep2Polling() {
+  if (step2PollTimer) {
+    clearInterval(step2PollTimer);
+    step2PollTimer = null;
+  }
+}
+
+function startStep2Polling() {
+  stopStep2Polling();
+  const pollingLabel = document.getElementById("step2-polling");
+  if (pollingLabel) pollingLabel.style.display = "";
+
+  step2PollTimer = setInterval(async () => {
+    try {
+      const stats = await apiFetch("/api/stats");
+      const total = (stats.articles || 0) + (stats.books || 0) + (stats.videos || 0) + (stats.highlights || 0);
+      if (total > 0) {
+        stopStep2Polling();
+        // Fetch the first capture to show its title
+        try {
+          const recent = await apiFetch("/api/recent?limit=1");
+          const items = (recent.results || []);
+          if (items.length > 0) {
+            const item = items[0];
+            const title = item.title || item.slug || "your first page";
+            const prompt = generateAIPrompt(item);
+            document.getElementById("step3-title").textContent = "It worked! You captured:";
+            document.getElementById("step3-subtitle").textContent = title;
+            document.getElementById("step3-fallback-prompt").style.display = "none";
+            const promptBox = document.getElementById("step3-prompt");
+            const promptText = document.getElementById("step3-prompt-text");
+            if (promptBox && promptText) {
+              promptText.textContent = prompt;
+              promptBox.style.display = "";
+            }
+          }
+        } catch {}
+        showStep(3);
+      }
+    } catch {}
+  }, 2000);
+}
+
 function showStep(n) {
   document.querySelectorAll(".onboarding-step").forEach((el) => el.classList.remove("active"));
   const step = document.getElementById("step" + n);
   if (step) step.classList.add("active");
+
+  // Start/stop polling based on active step
+  if (n === 2) {
+    startStep2Polling();
+  } else {
+    stopStep2Polling();
+  }
 }
 
 function setupOnboarding() {
   document.getElementById("onb-next1")?.addEventListener("click", () => showStep(2));
-  document.getElementById("onb-next2")?.addEventListener("click", () => showStep(3));
-  document.getElementById("onb-skip2")?.addEventListener("click", () => showStep(3));
+  document.getElementById("onb-next2")?.addEventListener("click", () => {
+    stopStep2Polling();
+    showStep(3);
+  });
+  document.getElementById("onb-skip2")?.addEventListener("click", () => {
+    stopStep2Polling();
+    showStep(3);
+  });
   document.getElementById("onb-done")?.addEventListener("click", () => {
+    stopStep2Polling();
     chrome.storage.local.set({ onboardingDone: true });
     $onboarding.style.display = "none";
     $main.style.display = "block";
     loadMainContent();
   });
   setupCopyBox("onb-cmd", "onb-copied");
+  setupCopyBox("step3-prompt-box", "step3-copied");
 }
 
 // ─── Search ──────────────────────────────────────────────────────────

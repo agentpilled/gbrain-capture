@@ -897,6 +897,7 @@
     <div class="status-bar-left">
       <span class="status-dot" id="obsidianDot"></span>
       <span id="obsidianStatus">Obsidian: checking...</span>
+      <span style="margin-left:12px;color:var(--text-muted);" id="mcpStatus"></span>
     </div>
     <div class="status-bar-right">
       <span class="processing-note" id="processingNote" style="display:none;">Enable smart processing with OPENAI_API_KEY</span>
@@ -1553,6 +1554,25 @@
       });
 
       loadProcessingStatus();
+
+      // MCP status
+      async function loadMcpStatus() {
+        const mcpEl = document.getElementById('mcpStatus');
+        if (!mcpEl) return;
+        try {
+          const diag = await fetchJSON('/api/diagnostics');
+          if (diag.mcpConfigured) {
+            mcpEl.textContent = 'MCP: configured';
+            mcpEl.style.color = 'var(--green)';
+          } else {
+            mcpEl.textContent = 'MCP: not configured';
+            mcpEl.style.color = 'var(--text-muted)';
+          }
+        } catch {
+          mcpEl.textContent = '';
+        }
+      }
+      loadMcpStatus();
 
       // -----------------------------------------------------------------------
       // Graph View
