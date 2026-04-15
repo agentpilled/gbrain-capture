@@ -224,6 +224,7 @@
     .card-type.kindle { color: var(--amber); }
     .card-type.web { color: var(--green); }
     .card-type.pdf { color: var(--blue); }
+    .card-type.youtube { color: #dc2626; }
 
     .card-chevron {
       color: var(--text-muted);
@@ -725,6 +726,7 @@
     .graph-info-type.kindle { color: var(--amber); }
     .graph-info-type.web { color: var(--green); }
     .graph-info-type.pdf { color: var(--blue); }
+    .graph-info-type.youtube { color: #dc2626; }
 
     .graph-info-summary {
       font-size: 13px;
@@ -839,6 +841,7 @@
       <button class="tab" data-filter="kindle">Books</button>
       <button class="tab" data-filter="web">Articles</button>
       <button class="tab" data-filter="pdf">PDFs</button>
+      <button class="tab" data-filter="youtube">Videos</button>
       <button class="tab" data-filter="graph">Graph</button>
     </div>
 
@@ -987,6 +990,7 @@
         const parts = [];
         if (state.stats.books) parts.push(`${state.stats.books} book${state.stats.books !== 1 ? 's' : ''}`);
         if (state.stats.articles) parts.push(`${state.stats.articles} article${state.stats.articles !== 1 ? 's' : ''}`);
+        if (state.stats.videos) parts.push(`${state.stats.videos} video${state.stats.videos !== 1 ? 's' : ''}`);
         if (state.stats.pdfs) parts.push(`${state.stats.pdfs} PDF${state.stats.pdfs !== 1 ? 's' : ''}`);
         if (state.stats.highlights) parts.push(`${state.stats.highlights} highlight${state.stats.highlights !== 1 ? 's' : ''}`);
         statsLine.textContent = parts.join(' \u00b7 ');
@@ -1001,6 +1005,8 @@
           items = items.filter(it => it.slug && it.slug.startsWith('web/'));
         } else if (state.filter === 'pdf') {
           items = items.filter(it => it.slug && it.slug.startsWith('pdf/'));
+        } else if (state.filter === 'youtube') {
+          items = items.filter(it => it.slug && it.slug.startsWith('youtube/'));
         }
         return items;
       }
@@ -1022,8 +1028,9 @@
 
           const isKindle = item.slug && item.slug.startsWith('kindle/');
           const isPdf = item.slug && item.slug.startsWith('pdf/');
-          const typeLabel = isPdf ? 'pdf' : isKindle ? 'kindle' : 'web';
-          const typeClass = isPdf ? 'pdf' : isKindle ? 'kindle' : 'web';
+          const isYouTube = item.slug && item.slug.startsWith('youtube/');
+          const typeLabel = isYouTube ? 'youtube' : isPdf ? 'pdf' : isKindle ? 'kindle' : 'web';
+          const typeClass = isYouTube ? 'youtube' : isPdf ? 'pdf' : isKindle ? 'kindle' : 'web';
 
           const highlightCount = item.highlight_count || item.highlights || '';
           const metaParts = [];
@@ -1142,6 +1149,22 @@
 
       // Render highlights into element
       function renderHighlights(el, items, slug) {
+        // For YouTube items, show transcript with timestamps
+        if (slug && slug.startsWith('youtube/') && state.rawContentCache && state.rawContentCache[slug]) {
+          const raw = state.rawContentCache[slug];
+          let body = raw;
+          const fmEnd = raw.indexOf('---', raw.indexOf('---') + 3);
+          if (fmEnd !== -1) body = raw.slice(fmEnd + 3).trim();
+          // Strip "## Transcript" heading
+          body = body.replace(/^## Transcript\s*\n+/, '');
+          if (!body) {
+            el.innerHTML = '<div class="loading-text">No transcript</div>';
+          } else {
+            el.innerHTML = `<div style="font-family:var(--mono);font-size:12px;line-height:1.8;white-space:pre-wrap;color:var(--text-secondary);">${escapeHTML(body)}</div>`;
+          }
+          return;
+        }
+
         // For PDF items, show extracted text
         if (slug && slug.startsWith('pdf/') && state.rawContentCache && state.rawContentCache[slug]) {
           const raw = state.rawContentCache[slug];

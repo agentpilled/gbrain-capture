@@ -229,9 +229,9 @@ async function handleRecent(req: Request): Promise<Response> {
     const output = await gbrainExec(['list', '--limit', '200']);
     const all = parseGbrainOutput(output, 200);
 
-    // Prioritize: kindle, web, and pdf captures first, then everything else
-    const captures = all.filter(i => i.slug?.startsWith('kindle/') || i.slug?.startsWith('web/') || i.slug?.startsWith('pdf/'));
-    const other = all.filter(i => !i.slug?.startsWith('kindle/') && !i.slug?.startsWith('web/') && !i.slug?.startsWith('pdf/'));
+    // Prioritize: kindle, web, pdf, and youtube captures first, then everything else
+    const captures = all.filter(i => i.slug?.startsWith('kindle/') || i.slug?.startsWith('web/') || i.slug?.startsWith('pdf/') || i.slug?.startsWith('youtube/'));
+    const other = all.filter(i => !i.slug?.startsWith('kindle/') && !i.slug?.startsWith('web/') && !i.slug?.startsWith('pdf/') && !i.slug?.startsWith('youtube/'));
     const sorted = [...captures, ...other].slice(0, limit);
 
     return corsResponse(200, { results: sorted });
@@ -262,12 +262,15 @@ async function handleStats(): Promise<Response> {
     let articles = 0;
     let books = 0;
     let pdfs = 0;
+    let videos = 0;
 
     for (const line of lines) {
       const parts = line.split('\t');
       const slug = parts[0]?.trim() || '';
       if (slug.startsWith('kindle/')) {
         books++;
+      } else if (slug.startsWith('youtube/')) {
+        videos++;
       } else if (slug.startsWith('web/')) {
         articles++;
       } else if (slug.startsWith('pdf/')) {
@@ -286,10 +289,10 @@ async function handleStats(): Promise<Response> {
       highlights = 0;
     }
 
-    return corsResponse(200, { articles, books, pdfs, highlights });
+    return corsResponse(200, { articles, books, pdfs, videos, highlights });
   } catch (err: any) {
     console.error('[stats]', err.message);
-    return corsResponse(200, { articles: 0, books: 0, pdfs: 0, highlights: 0 });
+    return corsResponse(200, { articles: 0, books: 0, pdfs: 0, videos: 0, highlights: 0 });
   }
 }
 
@@ -379,8 +382,8 @@ async function obsidianSync(slug: string, markdown: string) {
     const titleMatch = markdown.match(/^title:\s*"?(.+?)"?\s*$/m);
     const title = titleMatch ? titleMatch[1] : slug.split('/').pop()?.replace(/-/g, ' ') || slug;
 
-    // Determine subfolder (kindle, web, or pdf)
-    const subfolder = slug.startsWith('kindle/') ? 'kindle' : slug.startsWith('pdf/') ? 'pdf' : 'web';
+    // Determine subfolder (kindle, web, pdf, or youtube)
+    const subfolder = slug.startsWith('kindle/') ? 'kindle' : slug.startsWith('pdf/') ? 'pdf' : slug.startsWith('youtube/') ? 'youtube' : 'web';
 
     // Clean filename (remove chars not allowed in filenames)
     const cleanTitle = title.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
@@ -452,7 +455,7 @@ async function handleObsidianSyncAll(): Promise<Response> {
     for (const line of lines) {
       const parts = line.split('\t');
       const slug = parts[0]?.trim();
-      if (!slug || (!slug.startsWith('kindle/') && !slug.startsWith('web/') && !slug.startsWith('pdf/'))) continue;
+      if (!slug || (!slug.startsWith('kindle/') && !slug.startsWith('web/') && !slug.startsWith('pdf/') && !slug.startsWith('youtube/'))) continue;
 
       try {
         const content = await gbrainExec(['get', slug]);
@@ -660,11 +663,12 @@ async function handleGraph(): Promise<Response> {
     const output = await gbrainExec(['list', '--limit', '1000']);
     const items = parseGbrainOutput(output, 1000);
 
-    // Only include captures (kindle/, web/, pdf/)
+    // Only include captures (kindle/, web/, pdf/, youtube/)
     const captures = items.filter(i =>
       i.slug?.startsWith('kindle/') ||
       i.slug?.startsWith('web/') ||
-      i.slug?.startsWith('pdf/')
+      i.slug?.startsWith('pdf/') ||
+      i.slug?.startsWith('youtube/')
     );
 
     // Build nodes
@@ -672,8 +676,9 @@ async function handleGraph(): Promise<Response> {
       id: item.slug,
       title: item.title || item.slug,
       type: item.slug.startsWith('kindle/') ? 'kindle' :
-            item.slug.startsWith('pdf/') ? 'pdf' : 'web',
-      size: item.slug.startsWith('kindle/') ? 8 : 5,
+            item.slug.startsWith('pdf/') ? 'pdf' :
+            item.slug.startsWith('youtube/') ? 'youtube' : 'web',
+      size: item.slug.startsWith('kindle/') ? 8 : item.slug.startsWith('youtube/') ? 7 : 5,
     }));
 
     // Build edges from connections
@@ -778,7 +783,7 @@ async function handleReprocessAll(): Promise<Response> {
     for (const line of lines) {
       const parts = line.split('\t');
       const slug = parts[0]?.trim();
-      if (!slug || (!slug.startsWith('kindle/') && !slug.startsWith('web/') && !slug.startsWith('pdf/'))) continue;
+      if (!slug || (!slug.startsWith('kindle/') && !slug.startsWith('web/') && !slug.startsWith('pdf/') && !slug.startsWith('youtube/'))) continue;
 
       try {
         const content = await gbrainExec(['get', slug]);
@@ -797,6 +802,129 @@ async function handleReprocessAll(): Promise<Response> {
   } catch (err: any) {
     return corsResponse(500, { error: err.message });
   }
+}
+
+// ---------------------------------------------------------------------------
+// YouTube transcript
+// ---------------------------------------------------------------------------
+
+async function fetchYouTubeTranscript(videoId: string): Promise<{ text: string; segments: Array<{ start: number; text: string }> } | null> {
+  // Fetch the video page to extract caption track URLs
+  const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+  });
+  const html = await pageRes.text();
+
+  // Extract captionTracks from the serialized player response
+  const trackMatch = html.match(/"captionTracks":\s*\[(.*?)\]/s);
+  if (!trackMatch) return null;
+
+  // Extract the first caption track URL
+  const urlMatch = trackMatch[1].match(/"baseUrl":\s*"(.*?)"/);
+  if (!urlMatch) return null;
+
+  const captionUrl = urlMatch[1].replace(/\\u0026/g, '&');
+
+  // Fetch the actual transcript in JSON format
+  const captionRes = await fetch(captionUrl + '&fmt=json3');
+  if (!captionRes.ok) return null;
+
+  const captionData = await captionRes.json();
+
+  // Parse segments from the events array
+  const segments = (captionData.events || [])
+    .filter((e: any) => e.segs)
+    .map((e: any) => ({
+      start: Math.floor((e.tStartMs || 0) / 1000),
+      text: (e.segs || []).map((s: any) => s.utf8 || '').join('').trim(),
+    }))
+    .filter((s: any) => s.text);
+
+  const fullText = segments.map((s: any) => s.text).join(' ');
+
+  return { text: fullText, segments };
+}
+
+function formatTimestamp(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+async function handleCaptureYouTube(req: Request): Promise<Response> {
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return corsResponse(400, { error: 'Invalid JSON body' });
+  }
+
+  const { url, videoId, title, channel } = body;
+
+  if (!videoId || typeof videoId !== 'string') {
+    return corsResponse(400, { error: 'Missing required field: videoId' });
+  }
+  if (!title || typeof title !== 'string') {
+    return corsResponse(400, { error: 'Missing required field: title' });
+  }
+
+  // Fetch transcript server-side
+  let transcript;
+  try {
+    transcript = await fetchYouTubeTranscript(videoId);
+  } catch (err: any) {
+    console.error('[youtube] transcript fetch error:', err.message);
+    return corsResponse(422, { error: 'Failed to fetch transcript: ' + err.message });
+  }
+
+  if (!transcript || transcript.segments.length === 0) {
+    return corsResponse(422, { error: 'No transcript available for this video' });
+  }
+
+  const channelSlug = channel ? slugifyText(channel) : 'unknown-channel';
+  const titleSlug = slugifyText(title);
+  const slug = `youtube/${channelSlug}/${titleSlug}`;
+  const timestamp = new Date().toISOString();
+
+  // Compute duration from last segment
+  const lastSegment = transcript.segments[transcript.segments.length - 1];
+  const duration = lastSegment ? lastSegment.start : 0;
+
+  // Build markdown with timestamps
+  const transcriptLines = transcript.segments.map(
+    (s: { start: number; text: string }) => `[${formatTimestamp(s.start)}] ${s.text}`
+  );
+
+  const channelTag = channelSlug.replace(/-+/g, '-');
+  const markdown = [
+    '---',
+    `title: "${title.replace(/"/g, '\\"')}"`,
+    'type: reference',
+    `tags: [youtube, ${channelTag}]`,
+    `source_url: https://youtube.com/watch?v=${videoId}`,
+    `channel: "${(channel || '').replace(/"/g, '\\"')}"`,
+    `captured_at: ${timestamp}`,
+    '---',
+    '',
+    '## Transcript',
+    '',
+    ...transcriptLines,
+    '',
+  ].join('\n');
+
+  // Fire-and-forget save
+  gbrainPut(slug, markdown).then(() => {
+    postProcess(slug, markdown).catch(err => {
+      console.warn('[post-process] failed:', err.message);
+    });
+  }).catch((err) => {
+    console.error(`[gbrain put] error:`, err);
+  });
+
+  // Obsidian sync
+  obsidianSync(slug, markdown);
+
+  return corsResponse(202, { status: 'accepted', slug, title, duration });
 }
 
 // ---------------------------------------------------------------------------
@@ -910,6 +1038,11 @@ const server = Bun.serve({
     // Capture endpoint
     if (url.pathname === '/api/capture' && req.method === 'POST') {
       return handleCapture(req);
+    }
+
+    // YouTube transcript capture
+    if (url.pathname === '/api/capture-youtube' && req.method === 'POST') {
+      return handleCaptureYouTube(req);
     }
 
     // Search endpoint

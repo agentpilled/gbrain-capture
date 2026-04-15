@@ -2,6 +2,7 @@
 // Receives extracted content from content script, POSTs to ClipBrain server, manages offline queue.
 
 const GBRAIN_URL = "http://localhost:19285/api/capture";
+const GBRAIN_YOUTUBE_URL = "http://localhost:19285/api/capture-youtube";
 const GBRAIN_STATS_URL = "http://localhost:19285/api/stats";
 const QUEUE_KEY = "captureQueue";
 const CAPTURE_COUNT_KEY = "captureCount";
@@ -37,6 +38,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true; // Keep message port open for async response
   }
+
+  if (msg.type === "youtube-capture") {
+    handleYouTubeCapture(msg, sender.tab?.id).then(() => {
+      sendResponse({ ok: true });
+    }).catch((err) => {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  }
 });
 
 async function handleCapture(data, tabId) {
@@ -70,8 +80,41 @@ async function handleCapture(data, tabId) {
   }
 }
 
+async function handleYouTubeCapture(data, tabId) {
+  const payload = {
+    url: data.url,
+    videoId: data.videoId,
+    title: data.title,
+    channel: data.channel,
+  };
+
+  try {
+    const resp = await fetch(GBRAIN_YOUTUBE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (resp.ok || resp.status === 202) {
+      await incrementCaptureCount();
+      notifyTab(tabId, true, "Saved transcript to ClipBrain \u2713");
+    } else if (resp.status === 422) {
+      const body = await resp.json().catch(() => ({}));
+      notifyTab(tabId, false, body.error || "No transcript available for this video");
+    } else {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+  } catch (err) {
+    console.warn("ClipBrain YouTube capture failed, queuing:", err.message);
+    await enqueue({ ...payload, _type: "youtube" });
+    setTempBadge("!", "#cc0000", 3000);
+    notifyTab(tabId, false);
+    ensureAlarm();
+  }
+}
+
 // ─── Toast notification on the page ──────────────────────────────────
-function notifyTab(tabId, success) {
+function notifyTab(tabId, success, customMessage) {
   if (!tabId) return;
   chrome.scripting.executeScript({
     target: { tabId },
@@ -80,6 +123,7 @@ function notifyTab(tabId, success) {
     chrome.tabs.sendMessage(tabId, {
       type: "showToast",
       success,
+      message: customMessage || null,
     });
   }).catch(() => {
     // Tab may have been closed or is a restricted page — ignore
@@ -119,7 +163,7 @@ async function syncBadgeFromServer() {
     const resp = await fetch(GBRAIN_STATS_URL, { signal: AbortSignal.timeout(3000) });
     if (!resp.ok) return;
     const stats = await resp.json();
-    const total = (stats.articles || 0) + (stats.books || 0);
+    const total = (stats.articles || 0) + (stats.books || 0) + (stats.videos || 0);
     if (total > 0) {
       await chrome.storage.local.set({ [CAPTURE_COUNT_KEY]: total });
       setBadge(total.toString(), "#4ade80");
