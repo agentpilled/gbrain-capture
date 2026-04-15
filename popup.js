@@ -172,11 +172,58 @@ async function loadMainContent() {
   }
 }
 
+// ─── Capture current page ────────────────────────────────────────────
+
+function setupCaptureButton() {
+  const btn = document.getElementById("captureBtn");
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    btn.textContent = "Capturing...";
+    btn.classList.add("capturing");
+    btn.disabled = true;
+
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) throw new Error("No active tab");
+
+      // Inject content script + readability
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["lib/readability.js", "content-script.js"],
+      });
+
+      // Wait for the content script to send the message and service worker to process it
+      // Listen for completion via a short poll of the badge or just wait
+      btn.textContent = "✓ Captured!";
+      btn.classList.remove("capturing");
+      btn.classList.add("done");
+
+      // Refresh the recent list after a brief delay
+      setTimeout(() => {
+        loadMainContent();
+        btn.textContent = "⬇️ Capture this page";
+        btn.classList.remove("done");
+        btn.disabled = false;
+      }, 2000);
+    } catch (err) {
+      console.error("Capture failed:", err);
+      btn.textContent = "Failed — try Cmd+Shift+S";
+      btn.classList.remove("capturing");
+      btn.disabled = false;
+      setTimeout(() => {
+        btn.textContent = "⬇️ Capture this page";
+      }, 3000);
+    }
+  });
+}
+
 // ─── Init ────────────────────────────────────────────────────────────
 
 async function init() {
   setupOnboarding();
   setupCopyBox("offlineCmd", "offlineCopied");
+  setupCaptureButton();
 
   $searchInput.addEventListener("input", (e) => doSearch(e.target.value));
 
