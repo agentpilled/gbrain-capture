@@ -370,23 +370,66 @@ body {
   margin: 12px 0;
 }
 
-/* ─── Full View Link ────────────────────────────────────────────── */
+/* ─── Action Buttons ────────────────────────────────────────────── */
 
-.full-view-link {
-  text-align: center;
-  padding: 10px 16px 12px;
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
   border-top: 1px solid #2a2a3e;
 }
 
-.full-view-link a {
-  color: #555;
+.btn-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
   text-decoration: none;
-  font-size: 11px;
-  transition: color 0.2s ease;
+  border: none;
+  font-family: inherit;
 }
 
-.full-view-link a:hover {
-  color: #4ade80;
+.btn-action:active {
+  transform: scale(0.97);
+}
+
+.btn-capture {
+  background: #4ade80;
+  color: #0f0f1a;
+}
+
+.btn-capture:hover {
+  background: #22c55e;
+}
+
+.btn-capture.capturing {
+  background: #2a2a3e;
+  color: #999;
+  cursor: wait;
+}
+
+.btn-capture.done {
+  background: #22863a;
+  color: #fff;
+}
+
+.btn-dashboard {
+  background: #1a1a2e;
+  color: #ccc;
+  border: 1px solid #2a2a3e;
+}
+
+.btn-dashboard:hover {
+  background: #22223a;
+  color: #fff;
+  border-color: #3a3a5e;
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────── */
