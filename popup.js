@@ -46,6 +46,7 @@ function formatDate(iso) {
 function iconForType(item) {
   if (item.type === "kindle" || (item.slug && item.slug.startsWith("kindle/"))) return "\u{1F4D6}";
   if (item.slug && item.slug.startsWith("pdf/")) return "\u{1F4C4}";
+  if (item.slug && item.slug.startsWith("youtube/")) return "\u25B6";
   return "\u{1F310}";
 }
 
@@ -163,6 +164,7 @@ async function loadMainContent() {
     const parts = [];
     if (stats.articles != null) parts.push(`${stats.articles} articles`);
     if (stats.books != null) parts.push(`${stats.books} books`);
+    if (stats.videos != null && stats.videos > 0) parts.push(`${stats.videos} videos`);
     if (stats.pdfs != null && stats.pdfs > 0) parts.push(`${stats.pdfs} PDFs`);
     if (stats.highlights != null) parts.push(`${stats.highlights} highlights`);
     if (parts.length > 0) {
@@ -255,7 +257,7 @@ async function init() {
     // Check if there are any captures — if so, skip onboarding
     try {
       const stats = await apiFetch("/api/stats");
-      const total = (stats.articles || 0) + (stats.books || 0) + (stats.highlights || 0);
+      const total = (stats.articles || 0) + (stats.books || 0) + (stats.videos || 0) + (stats.highlights || 0);
       if (total > 0) {
         await chrome.storage.local.set({ onboardingDone: true });
         $main.style.display = "block";

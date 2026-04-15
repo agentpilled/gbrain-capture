@@ -7,19 +7,21 @@
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type !== "showToast") return;
-    showToast(msg.success);
+    showToast(msg.success, msg.message);
   });
 
-  function showToast(success) {
+  function showToast(success, customMessage) {
     // Remove any existing toast
     const existing = document.getElementById("gbrain-toast");
     if (existing) existing.remove();
 
     const toast = document.createElement("div");
     toast.id = "gbrain-toast";
-    toast.textContent = success
-      ? "Saved to ClipBrain \u2713"
-      : "ClipBrain offline, queued";
+    toast.textContent = customMessage
+      ? customMessage
+      : success
+        ? "Saved to ClipBrain \u2713"
+        : "ClipBrain offline, queued";
 
     Object.assign(toast.style, {
       position: "fixed",
