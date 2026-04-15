@@ -2,6 +2,46 @@ import { describe, test, expect, beforeAll, afterAll, mock } from 'bun:test';
 import { canonicalizeUrl, slugFromUrl, buildMarkdown } from '../server.ts';
 
 // ---------------------------------------------------------------------------
+// Helper: minimal valid PDF buffer with extractable text
+// ---------------------------------------------------------------------------
+
+function makeMinimalPdf(text = 'Hello ClipBrain'): Buffer {
+  const stream = `BT /F1 12 Tf 100 700 Td (${text}) Tj ET`;
+  const streamBytes = Buffer.from(stream);
+
+  const objects = [
+    `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`,
+    `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj`,
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj`,
+    `4 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n${stream}\nendstream\nendobj`,
+    `5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`,
+  ];
+
+  let body = '%PDF-1.4\n';
+  const offsets: number[] = [];
+
+  for (const obj of objects) {
+    offsets.push(Buffer.byteLength(body));
+    body += obj + '\n';
+  }
+
+  const xrefOffset = Buffer.byteLength(body);
+  body += 'xref\n';
+  body += `0 ${offsets.length + 1}\n`;
+  body += '0000000000 65535 f \n';
+  for (const off of offsets) {
+    body += `${String(off).padStart(10, '0')} 00000 n \n`;
+  }
+  body += 'trailer\n';
+  body += `<< /Size ${offsets.length + 1} /Root 1 0 R >>\n`;
+  body += 'startxref\n';
+  body += `${xrefOffset}\n`;
+  body += '%%EOF\n';
+
+  return Buffer.from(body);
+}
+
+// ---------------------------------------------------------------------------
 // Unit tests — pure functions
 // ---------------------------------------------------------------------------
 
@@ -214,5 +254,73 @@ describe('HTTP server', () => {
   test('GET /unknown returns 404', async () => {
     const res = await fetch(`${BASE}/unknown`);
     expect(res.status).toBe(404);
+  });
+
+  // -------------------------------------------------------------------------
+  // PDF upload tests
+  // -------------------------------------------------------------------------
+
+  test('GET /api/upload-pdf returns HTML upload form', async () => {
+    const res = await fetch(`${BASE}/api/upload-pdf`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    const html = await res.text();
+    expect(html).toContain('Upload PDF');
+    expect(html).toContain('multipart/form-data');
+  });
+
+  test('POST /api/upload-pdf with valid PDF returns 202', async () => {
+    const pdfBuf = makeMinimalPdf('Test document content');
+    const form = new FormData();
+    form.append('file', new File([pdfBuf], 'My Research Paper.pdf', { type: 'application/pdf' }));
+
+    const res = await fetch(`${BASE}/api/upload-pdf`, { method: 'POST', body: form });
+    expect(res.status).toBe(202);
+
+    const data = await res.json();
+    expect(data.status).toBe('accepted');
+    expect(data.slug).toBe('pdf/my-research-paper');
+    expect(data.title).toBe('My Research Paper');
+    expect(data.pages).toBeGreaterThanOrEqual(1);
+  });
+
+  test('POST /api/upload-pdf rejects non-PDF files', async () => {
+    const form = new FormData();
+    form.append('file', new File([Buffer.from('not a pdf')], 'notes.txt', { type: 'text/plain' }));
+
+    const res = await fetch(`${BASE}/api/upload-pdf`, { method: 'POST', body: form });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain('PDF');
+  });
+
+  test('POST /api/upload-pdf rejects files over 50MB', async () => {
+    // Create a FormData with an oversized file
+    const bigBuf = Buffer.alloc(51 * 1024 * 1024, 0);
+    const form = new FormData();
+    form.append('file', new File([bigBuf], 'huge.pdf', { type: 'application/pdf' }));
+
+    const res = await fetch(`${BASE}/api/upload-pdf`, { method: 'POST', body: form });
+    expect(res.status).toBe(413);
+    const data = await res.json();
+    expect(data.error).toContain('too large');
+  });
+
+  test('POST /api/upload-pdf generates correct slug from filename', async () => {
+    const pdfBuf = makeMinimalPdf('slug test');
+    const form = new FormData();
+    form.append('file', new File([pdfBuf], 'Machine Learning 101 - Chapter 2.pdf', { type: 'application/pdf' }));
+
+    const res = await fetch(`${BASE}/api/upload-pdf`, { method: 'POST', body: form });
+    expect(res.status).toBe(202);
+
+    const data = await res.json();
+    expect(data.slug).toBe('pdf/machine-learning-101-chapter-2');
+  });
+
+  test('POST /api/upload-pdf returns 400 when no file provided', async () => {
+    const form = new FormData();
+    const res = await fetch(`${BASE}/api/upload-pdf`, { method: 'POST', body: form });
+    expect(res.status).toBe(400);
   });
 });

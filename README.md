@@ -48,6 +48,12 @@ Or click the ClipBrain extension icon → **Capture this page**.
 
 The extension clicks through each book in your library, extracts all highlights and notes, and imports them.
 
+### PDFs
+
+Drag any PDF onto the [dashboard](http://localhost:19285) to import it. Or click the upload button.
+
+The text is extracted, indexed, and searchable by your AI.
+
 ## Dashboard
 
 Open **http://localhost:19285** to browse your knowledge base:

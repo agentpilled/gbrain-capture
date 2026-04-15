@@ -19,6 +19,7 @@
       --accent: #7f6df2;
       --green: #4ade80;
       --amber: #e5a84b;
+      --blue: #60a5fa;
       --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
       --sans: 'Inter', -apple-system, system-ui, sans-serif;
     }
@@ -222,6 +223,7 @@
 
     .card-type.kindle { color: var(--amber); }
     .card-type.web { color: var(--green); }
+    .card-type.pdf { color: var(--blue); }
 
     .card-chevron {
       color: var(--text-muted);
@@ -375,9 +377,129 @@
       opacity: 0.5;
       cursor: default;
     }
+
+    /* PDF drop zone overlay */
+    .drop-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(8, 8, 26, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .drop-overlay.visible {
+      display: flex;
+    }
+
+    .drop-overlay-inner {
+      border: 2px dashed var(--blue);
+      border-radius: 16px;
+      padding: 60px 80px;
+      text-align: center;
+      color: var(--blue);
+    }
+
+    .drop-overlay-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.8;
+    }
+
+    .drop-overlay-text {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .drop-overlay-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+    }
+
+    /* Upload PDF button */
+    .upload-pdf-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--mono);
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: border-color 150ms ease, color 150ms ease;
+    }
+
+    .upload-pdf-btn:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    /* PDF text content in expanded card */
+    .pdf-text {
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .pdf-text::-webkit-scrollbar { width: 4px; }
+    .pdf-text::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 2px; }
+
+    /* Upload progress toast */
+    .upload-toast {
+      position: fixed;
+      bottom: 48px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--text-primary);
+      z-index: 3000;
+      display: none;
+      min-width: 220px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+
+    .upload-toast.visible { display: block; }
+
+    .upload-toast-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .upload-toast-status {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .upload-toast-status.success { color: var(--green); }
+    .upload-toast-status.error { color: #ef4444; }
   </style>
 </head>
 <body>
+  <!-- PDF drop overlay -->
+  <div class="drop-overlay" id="dropOverlay">
+    <div class="drop-overlay-inner">
+      <div class="drop-overlay-icon">&#x1F4C4;</div>
+      <div class="drop-overlay-text">Drop PDF to import</div>
+      <div class="drop-overlay-sub">Text will be extracted, indexed, and searchable by your AI</div>
+    </div>
+  </div>
+
+  <!-- Upload progress toast -->
+  <div class="upload-toast" id="uploadToast">
+    <div class="upload-toast-title" id="uploadToastTitle">Uploading...</div>
+    <div class="upload-toast-status" id="uploadToastStatus">Processing PDF</div>
+  </div>
+
   <div class="container">
     <div class="header">
       <div class="header-brand">
@@ -391,12 +513,16 @@
         </svg>
         <span class="header-title">ClipBrain</span>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+      <button class="upload-pdf-btn" id="uploadPdfBtn" title="Upload PDF">Upload PDF</button>
+      <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" style="display:none;">
       <div class="search-box">
         <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <input type="text" class="search-input" id="searchInput" placeholder="Search..." autocomplete="off">
         <button class="search-clear" id="searchClear" aria-label="Clear search">&times;</button>
+      </div>
       </div>
     </div>
 
@@ -406,6 +532,7 @@
       <button class="tab active" data-filter="all">All</button>
       <button class="tab" data-filter="kindle">Books</button>
       <button class="tab" data-filter="web">Articles</button>
+      <button class="tab" data-filter="pdf">PDFs</button>
     </div>
 
     <div class="card-list" id="cardList">
@@ -445,6 +572,7 @@
         searchQuery: '',
         expandedSlugs: new Set(),
         contentCache: {},
+        rawContentCache: {},
         stats: null,
       };
 
@@ -533,6 +661,7 @@
         const parts = [];
         if (state.stats.books) parts.push(`${state.stats.books} book${state.stats.books !== 1 ? 's' : ''}`);
         if (state.stats.articles) parts.push(`${state.stats.articles} article${state.stats.articles !== 1 ? 's' : ''}`);
+        if (state.stats.pdfs) parts.push(`${state.stats.pdfs} PDF${state.stats.pdfs !== 1 ? 's' : ''}`);
         if (state.stats.highlights) parts.push(`${state.stats.highlights} highlight${state.stats.highlights !== 1 ? 's' : ''}`);
         statsLine.textContent = parts.join(' \u00b7 ');
       }
@@ -544,6 +673,8 @@
           items = items.filter(it => it.slug && it.slug.startsWith('kindle/'));
         } else if (state.filter === 'web') {
           items = items.filter(it => it.slug && it.slug.startsWith('web/'));
+        } else if (state.filter === 'pdf') {
+          items = items.filter(it => it.slug && it.slug.startsWith('pdf/'));
         }
         return items;
       }
@@ -564,12 +695,14 @@
           card.style.animationDelay = `${idx * 30}ms`;
 
           const isKindle = item.slug && item.slug.startsWith('kindle/');
-          const typeLabel = isKindle ? 'kindle' : 'web';
-          const typeClass = isKindle ? 'kindle' : 'web';
+          const isPdf = item.slug && item.slug.startsWith('pdf/');
+          const typeLabel = isPdf ? 'pdf' : isKindle ? 'kindle' : 'web';
+          const typeClass = isPdf ? 'pdf' : isKindle ? 'kindle' : 'web';
 
           const highlightCount = item.highlight_count || item.highlights || '';
           const metaParts = [];
           if (item.author) metaParts.push(item.author);
+          if (item.pages) metaParts.push(`${item.pages} page${item.pages !== 1 ? 's' : ''}`);
           if (highlightCount) metaParts.push(`${highlightCount} highlight${highlightCount !== 1 ? 's' : ''}`);
 
           card.innerHTML = `
@@ -597,7 +730,7 @@
             const contentEl = card.querySelector('.card-content');
             const innerEl = card.querySelector('.card-content-inner');
             if (state.contentCache[slug]) {
-              renderHighlights(innerEl, state.contentCache[slug]);
+              renderHighlights(innerEl, state.contentCache[slug], slug);
               // Set max-height after render
               requestAnimationFrame(() => {
                 contentEl.style.maxHeight = contentEl.scrollHeight + 'px';
@@ -623,9 +756,10 @@
       async function loadContent(slug, innerEl, contentEl) {
         try {
           const data = await fetchJSON(`/api/page?slug=${encodeURIComponent(slug)}`);
+          state.rawContentCache[slug] = data.content || '';
           const parsed = parseContent(data.content);
           state.contentCache[slug] = parsed;
-          renderHighlights(innerEl, parsed);
+          renderHighlights(innerEl, parsed, slug);
           contentEl.style.maxHeight = contentEl.scrollHeight + 'px';
         } catch (err) {
           innerEl.innerHTML = '<div class="loading-text">Failed to load</div>';
@@ -634,7 +768,22 @@
       }
 
       // Render highlights into element
-      function renderHighlights(el, items) {
+      function renderHighlights(el, items, slug) {
+        // For PDF items, show extracted text
+        if (slug && slug.startsWith('pdf/') && state.rawContentCache && state.rawContentCache[slug]) {
+          const raw = state.rawContentCache[slug];
+          // Extract body text (after frontmatter)
+          let body = raw;
+          const fmEnd = raw.indexOf('---', raw.indexOf('---') + 3);
+          if (fmEnd !== -1) body = raw.slice(fmEnd + 3).trim();
+          if (!body) {
+            el.innerHTML = '<div class="loading-text">No text content</div>';
+          } else {
+            el.innerHTML = `<div class="pdf-text">${escapeHTML(body)}</div>`;
+          }
+          return;
+        }
+
         if (!items || items.length === 0) {
           el.innerHTML = '<div class="loading-text">No highlights</div>';
           return;
@@ -667,7 +816,7 @@
           state.expandedSlugs.add(slug);
 
           if (state.contentCache[slug]) {
-            renderHighlights(innerEl, state.contentCache[slug]);
+            renderHighlights(innerEl, state.contentCache[slug], slug);
             contentEl.style.maxHeight = contentEl.scrollHeight + 'px';
           } else {
             innerEl.innerHTML = '<div class="loading-text">Loading...</div>';
@@ -865,6 +1014,117 @@
       });
 
       loadObsidianStatus();
+
+      // -----------------------------------------------------------------------
+      // PDF drag-and-drop + upload button
+      // -----------------------------------------------------------------------
+
+      const dropOverlay = document.getElementById('dropOverlay');
+      const uploadToast = document.getElementById('uploadToast');
+      const uploadToastTitle = document.getElementById('uploadToastTitle');
+      const uploadToastStatus = document.getElementById('uploadToastStatus');
+      const uploadPdfBtn = document.getElementById('uploadPdfBtn');
+      const pdfFileInput = document.getElementById('pdfFileInput');
+
+      let dragCounter = 0;
+
+      document.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        if (dragCounter === 1) {
+          dropOverlay.classList.add('visible');
+        }
+      });
+
+      document.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter <= 0) {
+          dragCounter = 0;
+          dropOverlay.classList.remove('visible');
+        }
+      });
+
+      document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+
+      document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        dropOverlay.classList.remove('visible');
+
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+          const file = files[0];
+          if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            uploadPdf(file);
+          }
+        }
+      });
+
+      // Upload button
+      uploadPdfBtn.addEventListener('click', () => {
+        pdfFileInput.click();
+      });
+
+      pdfFileInput.addEventListener('change', () => {
+        const file = pdfFileInput.files[0];
+        if (file) {
+          uploadPdf(file);
+          pdfFileInput.value = '';
+        }
+      });
+
+      async function uploadPdf(file) {
+        // Show toast
+        uploadToastTitle.textContent = file.name;
+        uploadToastStatus.textContent = 'Uploading...';
+        uploadToastStatus.className = 'upload-toast-status';
+        uploadToast.classList.add('visible');
+
+        const fd = new FormData();
+        fd.append('file', file);
+
+        try {
+          const res = await fetch('/api/upload-pdf', { method: 'POST', body: fd });
+          const data = await res.json();
+
+          if (res.ok) {
+            uploadToastStatus.textContent = `Imported (${data.pages} page${data.pages !== 1 ? 's' : ''})`;
+            uploadToastStatus.classList.add('success');
+
+            // Add the new item to the list and re-render
+            const newItem = {
+              slug: data.slug,
+              title: data.title,
+              type: 'reference',
+              pages: data.pages,
+              date: new Date().toISOString().slice(0, 10),
+            };
+            state.items.unshift(newItem);
+            renderCards(getFilteredItems());
+
+            // Refresh stats
+            try {
+              const statsData = await fetchJSON('/api/stats');
+              state.stats = statsData;
+              renderStats();
+            } catch {}
+          } else {
+            uploadToastStatus.textContent = data.error || 'Upload failed';
+            uploadToastStatus.classList.add('error');
+          }
+        } catch (err) {
+          uploadToastStatus.textContent = 'Error: ' + err.message;
+          uploadToastStatus.classList.add('error');
+        }
+
+        setTimeout(() => {
+          uploadToast.classList.remove('visible');
+        }, 4000);
+      }
+
     })();
   </script>
 </body>

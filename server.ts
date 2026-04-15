@@ -3,7 +3,10 @@
 // ClipBrain — standalone HTTP server
 // Receives web captures from the Chrome extension and stores them via `gbrain put` CLI.
 
+import { PDFParse } from 'pdf-parse';
+
 const DEFAULT_PORT = 19285;
+const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB
 
 // ---------------------------------------------------------------------------
 // URL helpers
@@ -225,9 +228,9 @@ async function handleRecent(req: Request): Promise<Response> {
     const output = await gbrainExec(['list', '--limit', '200']);
     const all = parseGbrainOutput(output, 200);
 
-    // Prioritize: kindle and web captures first, then everything else
-    const captures = all.filter(i => i.slug?.startsWith('kindle/') || i.slug?.startsWith('web/'));
-    const other = all.filter(i => !i.slug?.startsWith('kindle/') && !i.slug?.startsWith('web/'));
+    // Prioritize: kindle, web, and pdf captures first, then everything else
+    const captures = all.filter(i => i.slug?.startsWith('kindle/') || i.slug?.startsWith('web/') || i.slug?.startsWith('pdf/'));
+    const other = all.filter(i => !i.slug?.startsWith('kindle/') && !i.slug?.startsWith('web/') && !i.slug?.startsWith('pdf/'));
     const sorted = [...captures, ...other].slice(0, limit);
 
     return corsResponse(200, { results: sorted });
@@ -257,6 +260,7 @@ async function handleStats(): Promise<Response> {
 
     let articles = 0;
     let books = 0;
+    let pdfs = 0;
 
     for (const line of lines) {
       const parts = line.split('\t');
@@ -265,6 +269,8 @@ async function handleStats(): Promise<Response> {
         books++;
       } else if (slug.startsWith('web/')) {
         articles++;
+      } else if (slug.startsWith('pdf/')) {
+        pdfs++;
       }
     }
 
@@ -279,7 +285,7 @@ async function handleStats(): Promise<Response> {
       highlights = 0;
     }
 
-    return corsResponse(200, { articles, books, highlights });
+    return corsResponse(200, { articles, books, pdfs, highlights });
   } catch (err: any) {
     console.error('[stats]', err.message);
     return corsResponse(200, { articles: 0, books: 0, highlights: 0 });
@@ -372,8 +378,8 @@ async function obsidianSync(slug: string, markdown: string) {
     const titleMatch = markdown.match(/^title:\s*"?(.+?)"?\s*$/m);
     const title = titleMatch ? titleMatch[1] : slug.split('/').pop()?.replace(/-/g, ' ') || slug;
 
-    // Determine subfolder (kindle or web)
-    const subfolder = slug.startsWith('kindle/') ? 'kindle' : 'web';
+    // Determine subfolder (kindle, web, or pdf)
+    const subfolder = slug.startsWith('kindle/') ? 'kindle' : slug.startsWith('pdf/') ? 'pdf' : 'web';
 
     // Clean filename (remove chars not allowed in filenames)
     const cleanTitle = title.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
@@ -445,7 +451,7 @@ async function handleObsidianSyncAll(): Promise<Response> {
     for (const line of lines) {
       const parts = line.split('\t');
       const slug = parts[0]?.trim();
-      if (!slug || (!slug.startsWith('kindle/') && !slug.startsWith('web/'))) continue;
+      if (!slug || (!slug.startsWith('kindle/') && !slug.startsWith('web/') && !slug.startsWith('pdf/'))) continue;
 
       try {
         const content = await gbrainExec(['get', slug]);
@@ -460,6 +466,104 @@ async function handleObsidianSyncAll(): Promise<Response> {
   } catch (err: any) {
     return corsResponse(500, { error: err.message });
   }
+}
+
+// ---------------------------------------------------------------------------
+// PDF upload
+// ---------------------------------------------------------------------------
+
+async function handleUploadPdfGet(): Promise<Response> {
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Upload PDF — ClipBrain</title>
+<style>body{background:#1e1e1e;color:#dcddde;font-family:-apple-system,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
+.box{background:#262626;border:1px solid #333;border-radius:12px;padding:32px;max-width:400px;width:90%;text-align:center;}
+h2{font-size:18px;margin-bottom:8px;}p{color:#999;font-size:13px;margin-bottom:20px;}
+input[type=file]{margin-bottom:16px;}
+button{background:#7f6df2;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;}
+button:disabled{opacity:0.5;}
+.msg{margin-top:12px;font-size:13px;}</style></head>
+<body><div class="box"><h2>Upload PDF</h2><p>Select a PDF to import into your knowledge base.</p>
+<form id="f" enctype="multipart/form-data"><input type="file" name="file" accept=".pdf,application/pdf" required><br>
+<button type="submit">Upload</button></form><div class="msg" id="msg"></div>
+<script>document.getElementById('f').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);const btn=e.target.querySelector('button');btn.disabled=true;btn.textContent='Uploading...';const msg=document.getElementById('msg');try{const r=await fetch('/api/upload-pdf',{method:'POST',body:fd});const d=await r.json();if(r.ok){msg.style.color='#4ade80';msg.textContent='Imported: '+d.title+' ('+d.pages+' pages)';}else{msg.style.color='#ef4444';msg.textContent=d.error||'Upload failed';}}catch(err){msg.style.color='#ef4444';msg.textContent='Error: '+err.message;}btn.disabled=false;btn.textContent='Upload';});</script></div></body></html>`;
+  return new Response(html, { headers: { 'Content-Type': 'text/html' } });
+}
+
+async function handleUploadPdf(req: Request): Promise<Response> {
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch {
+    return corsResponse(400, { error: 'Invalid multipart/form-data' });
+  }
+
+  const file = formData.get('file');
+  if (!file || !(file instanceof File)) {
+    return corsResponse(400, { error: 'Missing file field' });
+  }
+
+  // Check file type
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    return corsResponse(400, { error: 'File must be a PDF' });
+  }
+
+  // Check file size
+  if (file.size > MAX_PDF_SIZE) {
+    return corsResponse(413, { error: 'File too large. Maximum size is 50MB.' });
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  let extractedText = '';
+  let pages = 0;
+  try {
+    const parser = new PDFParse({ data: buffer });
+    const textResult = await parser.getText();
+    extractedText = (textResult.text || '').trim();
+    pages = textResult.total || textResult.pages?.length || 0;
+    await parser.destroy();
+  } catch (err: any) {
+    return corsResponse(422, { error: 'Failed to parse PDF: ' + (err.message || 'unknown error') });
+  }
+
+  // Handle scanned/image-only PDFs
+  if (!extractedText) {
+    return corsResponse(422, {
+      error: 'This PDF appears to be scanned/image-only. Text extraction is not supported for scanned PDFs.',
+    });
+  }
+
+  // Generate slug from filename
+  const rawName = file.name.replace(/\.pdf$/i, '');
+  const slug = `pdf/${slugifyText(rawName)}`;
+  const title = rawName;
+  const timestamp = new Date().toISOString();
+
+  const markdown = [
+    '---',
+    `title: "${title.replace(/"/g, '\\"')}"`,
+    'type: reference',
+    'tags: [pdf, clipbrain-capture]',
+    'source: pdf-upload',
+    `captured_at: ${timestamp}`,
+    `pages: ${pages}`,
+    '---',
+    '',
+    extractedText,
+  ].join('\n') + '\n';
+
+  // Fire and forget
+  gbrainPut(slug, markdown).catch((err) => {
+    console.error(`[gbrain put] error:`, err);
+  });
+
+  // Obsidian sync (fire and forget)
+  obsidianSync(slug, markdown);
+
+  // Track in highlight counts (use 1 per PDF as a "capture" count)
+  updateHighlightCount(slug, 1);
+
+  return corsResponse(202, { status: 'accepted', slug, title, pages });
 }
 
 // ---------------------------------------------------------------------------
@@ -596,6 +700,14 @@ const server = Bun.serve({
     }
     if (url.pathname === '/api/config' && req.method === 'POST') {
       return handlePostConfig(req);
+    }
+
+    // PDF upload
+    if (url.pathname === '/api/upload-pdf' && req.method === 'GET') {
+      return handleUploadPdfGet();
+    }
+    if (url.pathname === '/api/upload-pdf' && req.method === 'POST') {
+      return handleUploadPdf(req);
     }
 
     // Obsidian bulk sync
