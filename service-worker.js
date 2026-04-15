@@ -26,9 +26,14 @@ chrome.commands.onCommand.addListener(async (command) => {
 });
 
 // ─── Message listener (from content script) ──────────────────────────
-chrome.runtime.onMessage.addListener((msg, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "captured" || msg.type === "kindle-import") {
-    handleCapture(msg, sender.tab?.id);
+    handleCapture(msg, sender.tab?.id).then(() => {
+      sendResponse({ ok: true });
+    }).catch((err) => {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true; // Keep message port open for async response
   }
 });
 
@@ -81,10 +86,10 @@ function notifyTab(tabId, success) {
 
 // ─── Badge helpers ───────────────────────────────────────────────────
 function setBadge(text, color) {
-  chrome.action.setBadgeText({ text });
-  chrome.action.setBadgeBackgroundColor({ color });
-  // Clear after 2 seconds
-  setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
+  if (!chrome.action) return;
+  chrome.action.setBadgeText({ text }).catch(() => {});
+  chrome.action.setBadgeBackgroundColor({ color }).catch(() => {});
+  setTimeout(() => chrome.action?.setBadgeText({ text: "" }).catch(() => {}), 2000);
 }
 
 // ─── Offline queue ───────────────────────────────────────────────────

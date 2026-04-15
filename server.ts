@@ -142,21 +142,23 @@ function corsResponse(status: number, body: unknown, extra?: Record<string, stri
 // GBrain CLI integration
 // ---------------------------------------------------------------------------
 
-function resolveGbrainBin(): string {
-  if (process.env.GBRAIN_BIN) return process.env.GBRAIN_BIN;
+function resolveGbrainCommand(): string[] {
+  if (process.env.GBRAIN_BIN) return [process.env.GBRAIN_BIN];
+
+  // Prefer running via bun + source (avoids PGLite ENOENT bug in compiled binaries)
+  const gbrainSrc = import.meta.dir + '/node_modules/gbrain/src/cli.ts';
+  if (require('fs').existsSync(gbrainSrc)) return ['bun', 'run', gbrainSrc];
+
+  // Fallback to compiled binary
   const localBin = import.meta.dir + '/bin/gbrain';
-  try {
-    const stat = Bun.file(localBin);
-    // Bun.file doesn't throw on missing files, but .size will be 0 for non-existent
-    // Use a sync check instead
-    if (require('fs').existsSync(localBin)) return localBin;
-  } catch {}
-  return 'gbrain';
+  if (require('fs').existsSync(localBin)) return [localBin];
+
+  return ['gbrain'];
 }
 
 async function gbrainPut(slug: string, markdown: string): Promise<void> {
-  const gbrainBin = resolveGbrainBin();
-  const proc = Bun.spawn([gbrainBin, 'put', slug], {
+  const cmd = resolveGbrainCommand();
+  const proc = Bun.spawn([...cmd, 'put', slug], {
     stdin: new Blob([markdown]),
     stdout: 'pipe',
     stderr: 'pipe',

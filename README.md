@@ -1,37 +1,47 @@
 # GBrain Capture
 
-Capture web content and make it available to your AI assistant. Everything you read becomes context Claude can use.
+Capture web articles and Kindle highlights into your personal knowledge base. Your AI assistant can then search everything you've read.
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/agentpilled/gbrain-capture
 cd gbrain-capture
-./setup.sh        # installs everything + initializes the database
-bun run serve     # starts the capture server on port 19285
+./setup.sh              # Install dependencies + build GBrain
+bun run serve           # Start the capture server
 ```
 
-Then load the Chrome extension:
-1. Open `chrome://extensions`
-2. Enable "Developer mode"
+## Chrome Extension
+
+1. Open `chrome://extensions` in Chrome
+2. Enable "Developer mode" (top right)
 3. Click "Load unpacked" → select this folder
-4. Press **Cmd+Shift+S** on any page to capture it
+4. Done! The extension is ready.
 
-## Connect with Claude Code
+### Capture web pages
+Press **Cmd+Shift+S** (Mac) or **Ctrl+Shift+S** on any page to save it.
 
-See [config/claude-code-setup.md](config/claude-code-setup.md) for MCP setup instructions.
+### Import Kindle highlights
+1. Go to [read.amazon.com/notebook](https://read.amazon.com/notebook)
+2. Click "Import to GBrain" (bottom right)
+3. Choose "This book" or "All books"
+
+## Connect your AI
+
+After capturing content, connect GBrain to your AI assistant:
+
+```bash
+./setup-mcp.sh          # Auto-configures Claude Code or OpenClaw
+```
+
+Then restart your AI tool and ask:
+> "What did I highlight in [book name]?"
 
 ## How it works
 
-1. You press Cmd+Shift+S on any web page
-2. The Chrome extension extracts the article text
-3. It sends the content to the local capture server
-4. GBrain indexes it (chunks, embeddings, vector search)
-5. Claude Code can now search your captured knowledge via MCP
-
-### Kindle Notebook Import
-
-Visit [read.amazon.com/notebook](https://read.amazon.com/notebook) and the extension will show an "Import to GBrain" button. Click it to import all your Kindle highlights and notes. Each book is saved separately under `kindle/{author}/{title}`.
+1. You capture content (web articles or Kindle highlights)
+2. GBrain indexes it (chunks text, generates embeddings, stores in vector DB)
+3. Your AI searches your knowledge base via MCP when relevant
 
 ## Requirements
 
