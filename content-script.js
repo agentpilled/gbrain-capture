@@ -16,6 +16,72 @@
     return url.searchParams.get("v") || null;
   }
 
+  // ─── YouTube transcript extraction (client-side) ────────────────────
+  // Fetching caption URLs server-side fails because they expire immediately.
+  // The content script can fetch them same-origin, with YouTube cookies intact.
+
+  function extractTranscriptFromScripts() {
+    const scripts = document.querySelectorAll("script");
+    for (const script of scripts) {
+      const text = script.textContent || "";
+      if (text.includes("captionTracks")) {
+        const match = text.match(/"captionTracks":\[(.*?)\]/s);
+        if (match) {
+          const urlMatch = match[1].match(/"baseUrl":"(.*?)"/);
+          if (urlMatch) {
+            const captionUrl = urlMatch[1].replace(/\\u0026/g, "&");
+            // Same-origin fetch — browser includes YouTube cookies automatically
+            return fetch(captionUrl + "&fmt=json3")
+              .then((r) => r.json())
+              .then((data) => {
+                const segments = (data.events || [])
+                  .filter((e) => e.segs)
+                  .map((e) => ({
+                    start: Math.floor((e.tStartMs || 0) / 1000),
+                    text: (e.segs || []).map((s) => s.utf8 || "").join("").trim(),
+                  }))
+                  .filter((s) => s.text);
+                return segments;
+              })
+              .catch((err) => {
+                console.warn("ClipBrain: failed to fetch caption track:", err);
+                return null;
+              });
+          }
+        }
+      }
+    }
+    return Promise.resolve(null);
+  }
+
+  function extractTranscriptFromPanel() {
+    // Fallback: read from an already-open transcript panel
+    const panel = document.querySelector("ytd-transcript-renderer");
+    if (!panel) return null;
+
+    const segmentEls = panel.querySelectorAll("ytd-transcript-segment-renderer");
+    if (!segmentEls.length) return null;
+
+    const segments = [];
+    for (const el of segmentEls) {
+      const timeEl = el.querySelector(".segment-timestamp");
+      const textEl = el.querySelector(".segment-text");
+      if (!textEl) continue;
+
+      let start = 0;
+      if (timeEl) {
+        const parts = (timeEl.textContent || "").trim().split(":").map(Number);
+        if (parts.length === 2) start = parts[0] * 60 + parts[1];
+        else if (parts.length === 3) start = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      }
+
+      const text = (textEl.textContent || "").trim();
+      if (text) segments.push({ start, text });
+    }
+
+    return segments.length ? segments : null;
+  }
+
   if (isYouTubeVideo()) {
     const videoId = getYouTubeVideoId();
     if (!videoId) {
@@ -35,13 +101,23 @@
                       document.querySelector("ytd-channel-name yt-formatted-string");
     const channel = channelEl?.textContent?.trim() || "";
 
-    chrome.runtime.sendMessage({
-      type: "youtube-capture",
-      url: location.href,
-      videoId: videoId,
-      title: title,
-      channel: channel,
+    // Extract transcript client-side, then send to service worker
+    extractTranscriptFromScripts().then((segments) => {
+      // If script extraction failed, try the DOM panel fallback
+      if (!segments) {
+        segments = extractTranscriptFromPanel();
+      }
+
+      chrome.runtime.sendMessage({
+        type: "youtube-capture",
+        url: location.href,
+        videoId: videoId,
+        title: title,
+        channel: channel,
+        transcript: segments, // Array of {start, text} or null
+      });
     });
+
     return; // Skip Readability — YouTube page HTML is useless
   }
 

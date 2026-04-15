@@ -808,43 +808,6 @@ async function handleReprocessAll(): Promise<Response> {
 // YouTube transcript
 // ---------------------------------------------------------------------------
 
-async function fetchYouTubeTranscript(videoId: string): Promise<{ text: string; segments: Array<{ start: number; text: string }> } | null> {
-  // Fetch the video page to extract caption track URLs
-  const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
-  });
-  const html = await pageRes.text();
-
-  // Extract captionTracks from the serialized player response
-  const trackMatch = html.match(/"captionTracks":\s*\[(.*?)\]/s);
-  if (!trackMatch) return null;
-
-  // Extract the first caption track URL
-  const urlMatch = trackMatch[1].match(/"baseUrl":\s*"(.*?)"/);
-  if (!urlMatch) return null;
-
-  const captionUrl = urlMatch[1].replace(/\\u0026/g, '&');
-
-  // Fetch the actual transcript in JSON format
-  const captionRes = await fetch(captionUrl + '&fmt=json3');
-  if (!captionRes.ok) return null;
-
-  const captionData = await captionRes.json();
-
-  // Parse segments from the events array
-  const segments = (captionData.events || [])
-    .filter((e: any) => e.segs)
-    .map((e: any) => ({
-      start: Math.floor((e.tStartMs || 0) / 1000),
-      text: (e.segs || []).map((s: any) => s.utf8 || '').join('').trim(),
-    }))
-    .filter((s: any) => s.text);
-
-  const fullText = segments.map((s: any) => s.text).join(' ');
-
-  return { text: fullText, segments };
-}
-
 function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -859,7 +822,7 @@ async function handleCaptureYouTube(req: Request): Promise<Response> {
     return corsResponse(400, { error: 'Invalid JSON body' });
   }
 
-  const { url, videoId, title, channel } = body;
+  const { url, videoId, title, channel, transcript } = body;
 
   if (!videoId || typeof videoId !== 'string') {
     return corsResponse(400, { error: 'Missing required field: videoId' });
@@ -868,17 +831,9 @@ async function handleCaptureYouTube(req: Request): Promise<Response> {
     return corsResponse(400, { error: 'Missing required field: title' });
   }
 
-  // Fetch transcript server-side
-  let transcript;
-  try {
-    transcript = await fetchYouTubeTranscript(videoId);
-  } catch (err: any) {
-    console.error('[youtube] transcript fetch error:', err.message);
-    return corsResponse(422, { error: 'Failed to fetch transcript: ' + err.message });
-  }
-
-  if (!transcript || transcript.segments.length === 0) {
-    return corsResponse(422, { error: 'No transcript available for this video' });
+  // Transcript is now extracted client-side by the content script
+  if (!transcript || !Array.isArray(transcript) || transcript.length === 0) {
+    return corsResponse(422, { error: 'No transcript data provided' });
   }
 
   const channelSlug = channel ? slugifyText(channel) : 'unknown-channel';
@@ -887,11 +842,11 @@ async function handleCaptureYouTube(req: Request): Promise<Response> {
   const timestamp = new Date().toISOString();
 
   // Compute duration from last segment
-  const lastSegment = transcript.segments[transcript.segments.length - 1];
+  const lastSegment = transcript[transcript.length - 1];
   const duration = lastSegment ? lastSegment.start : 0;
 
   // Build markdown with timestamps
-  const transcriptLines = transcript.segments.map(
+  const transcriptLines = transcript.map(
     (s: { start: number; text: string }) => `[${formatTimestamp(s.start)}] ${s.text}`
   );
 
