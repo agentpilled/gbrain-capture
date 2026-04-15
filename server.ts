@@ -271,20 +271,33 @@ function parseGbrainOutput(output: string, limit: number): Array<Record<string, 
   for (const line of lines) {
     if (results.length >= limit) break;
 
-    // Try to parse structured output; fall back to treating the line as a slug/title
-    // gbrain list output format varies — handle common patterns
+    // gbrain list format: slug \t type \t date \t title
+    // gbrain query format: [score] slug -- snippet
     const parts = line.split('\t');
     const item: Record<string, string> = {};
 
-    if (parts.length >= 2) {
+    if (parts.length >= 4) {
+      // gbrain list output: slug, type, date, title
       item.slug = parts[0].trim();
-      item.title = parts[1].trim();
+      item.type = parts[1].trim();
+      item.date = parts[2].trim();
+      item.title = parts[3].trim();
+    } else if (parts.length >= 2) {
+      item.slug = parts[0].trim();
+      item.type = parts[1].trim();
+      item.title = parts[parts.length - 1].trim();
       if (parts[2]) item.date = parts[2].trim();
-      if (parts[3]) item.snippet = parts[3].trim();
+    } else if (line.includes(' -- ')) {
+      // gbrain query output: [score] slug -- snippet
+      const [left, ...right] = line.split(' -- ');
+      const scoreMatch = left.match(/\[[\d.]+\]\s*(.*)/);
+      item.slug = scoreMatch ? scoreMatch[1].trim() : left.trim();
+      item.title = item.slug.split('/').pop()?.replace(/-/g, ' ') || item.slug;
+      item.snippet = right.join(' -- ').trim();
     } else {
       // Single value — treat as slug
       item.slug = line.trim();
-      item.title = line.trim().split('/').pop() || line.trim();
+      item.title = line.trim().split('/').pop()?.replace(/-/g, ' ') || line.trim();
     }
 
     results.push(item);
