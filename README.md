@@ -8,7 +8,7 @@ Save web articles and Kindle highlights to a local knowledge base. When you talk
 
 ## Get started
 
-You need [Bun](https://bun.sh) and Chrome. That's it.
+You need [Bun](https://bun.sh) and Chrome.
 
 ```bash
 git clone https://github.com/agentpilled/gbrain-capture
@@ -18,41 +18,56 @@ cd gbrain-capture
 
 This single command:
 - Installs all dependencies
-- Builds the gbrain knowledge engine
-- Creates a local database (no cloud, everything stays on your machine)
-- Auto-configures Claude Code and/or OpenClaw (auto-detects what you have)
-- Installs a background service so the capture server runs automatically
+- Builds the knowledge engine
+- Creates a local database (everything stays on your machine)
+- Auto-configures Claude Code and/or OpenClaw
+- Connects to Obsidian (if installed)
+- Installs a background service so the server runs automatically
 
-After setup, load the Chrome extension:
+Then load the Chrome extension:
 
 1. Go to `chrome://extensions`
 2. Turn on **Developer mode** (top right)
 3. Click **Load unpacked** → pick the `gbrain-capture` folder
 
-Done. That's the whole setup.
+Done.
 
 ## Capturing content
 
 ### Web articles
 
-On any webpage, press **Cmd+Shift+S** (Mac) or **Ctrl+Shift+S** (Windows/Linux).
+Press **Cmd+Shift+S** (Mac) or **Ctrl+Shift+S** (Windows/Linux) on any page.
 
-The page content is extracted, indexed, and stored locally. You'll see a brief notification confirming the capture.
+Or click the ClipBrain extension icon → **Capture this page**.
 
 ### Kindle highlights
 
 1. Go to [read.amazon.com/notebook](https://read.amazon.com/notebook)
-2. A button appears: **Import to ClipBrain**
-3. Choose **This book** (current) or **All books** (imports every book automatically)
+2. Click **Import to ClipBrain** (bottom right)
+3. Choose **This book** or **All books**
 
-The extension clicks through each book in your library, extracts all highlights and notes, and stores them with the book title and author.
+The extension clicks through each book in your library, extracts all highlights and notes, and imports them.
 
-### Browsing your brain
+## Dashboard
 
-Click the ClipBrain extension icon in Chrome to:
-- **Search** across everything you've captured
-- See **recent captures**
-- View **stats** (articles, books, highlights)
+Open **http://localhost:19285** to browse your knowledge base:
+
+- Search across all captures
+- Filter by books or articles
+- Expand any book to see all highlights and notes
+- View stats
+
+The extension popup also has a link: **Full dashboard**.
+
+## Obsidian sync
+
+If you use Obsidian, ClipBrain syncs your captures as markdown files to your vault.
+
+**Auto-detected during setup**: if Obsidian is installed, `setup.sh` finds your vault and enables sync automatically. A `ClipBrain/` folder appears in your vault with all captures.
+
+**Manual setup**: if you install Obsidian later, open the dashboard (localhost:19285) and click **Connect Obsidian** in the bottom bar. Enter your vault path and it syncs everything.
+
+Your captures appear in Obsidian as clean markdown with frontmatter, organized in `ClipBrain/kindle/` and `ClipBrain/web/`.
 
 ## Using with your AI
 
@@ -62,8 +77,6 @@ After setup, your AI already has access. Just talk naturally:
 - *"Find my notes about storytelling"*
 - *"What books have I read about psychology?"*
 - *"Summarize the highlights from The Bitcoin Standard"*
-
-Your AI uses ClipBrain's search (semantic + keyword, hybrid) to find relevant content from your captures and uses it in the conversation.
 
 Works with **Claude Code**, **OpenClaw**, **Claude Desktop**, and any MCP-compatible tool.
 
@@ -81,40 +94,24 @@ Works with **Claude Code**, **OpenClaw**, **Claude Desktop**, and any MCP-compat
   │  Extension │    │  Server      │    │  (auto)      │
   └───────────┘    │  (auto)      │    └──────┬───────┘
                    └──────┬───────┘           │
-                          │                    │
+                          │ also writes .md    │
                           ▼                    ▼
                    ┌──────────────────────────────┐
-                   │  gbrain (local database)      │
-                   │  PGLite + pgvector            │
-                   │  embeddings + hybrid search   │
+                   │  Local database (pgvector)    │
+                   │  + Obsidian vault (optional)  │
                    └──────────────────────────────┘
 ```
 
 1. **Capture**: Chrome extension extracts content (Readability.js for web, DOM parsing for Kindle)
-2. **Index**: The gbrain engine chunks the text, generates embeddings (OpenAI), stores in a local Postgres database
-3. **Search**: When your AI needs context, it calls ClipBrain's search tool via MCP (semantic + keyword hybrid)
+2. **Index**: Chunks the text, generates embeddings (OpenAI), stores in a local Postgres database
+3. **Sync**: Writes markdown to your Obsidian vault (if connected)
+4. **Search**: Your AI calls ClipBrain's search via MCP (semantic + keyword hybrid)
 
 Everything runs locally. No data leaves your machine except for generating embeddings (OpenAI API).
 
 ## Requirements
 
-- [Bun](https://bun.sh) (JavaScript runtime)
+- [Bun](https://bun.sh)
 - Chrome or Chromium
-- `OPENAI_API_KEY` environment variable (for generating embeddings)
-
-## Project structure
-
-```
-gbrain-capture/
-├── setup.sh                 One-command setup
-├── server.ts                HTTP capture server (Bun)
-├── manifest.json            Chrome extension (Manifest V3)
-├── service-worker.js        Background: captures, queue, badge
-├── content-script.js        Web page extraction (Readability.js)
-├── kindle-content-script.js Kindle Notebook extraction
-├── popup.html/js/css        Extension popup UI
-├── config/
-│   ├── com.gbrain.serve.plist   macOS auto-start
-│   └── claude-code-setup.md     Manual MCP setup guide
-└── node_modules/gbrain/     gbrain engine (auto-installed)
-```
+- `OPENAI_API_KEY` environment variable (for embeddings)
+- Obsidian (optional, for vault sync)
