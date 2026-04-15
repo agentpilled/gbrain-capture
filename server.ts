@@ -221,9 +221,16 @@ async function handleRecent(req: Request): Promise<Response> {
   const limit = parseInt(url.searchParams.get('limit') || '10', 10);
 
   try {
-    const output = await gbrainExec(['list', '--limit', String(limit)]);
-    const results = parseGbrainOutput(output, limit);
-    return corsResponse(200, { results });
+    // Fetch more than needed so we can filter and prioritize
+    const output = await gbrainExec(['list', '--limit', '200']);
+    const all = parseGbrainOutput(output, 200);
+
+    // Prioritize: kindle and web captures first, then everything else
+    const captures = all.filter(i => i.slug?.startsWith('kindle/') || i.slug?.startsWith('web/'));
+    const other = all.filter(i => !i.slug?.startsWith('kindle/') && !i.slug?.startsWith('web/'));
+    const sorted = [...captures, ...other].slice(0, limit);
+
+    return corsResponse(200, { results: sorted });
   } catch (err: any) {
     console.error('[recent]', err.message);
     return corsResponse(200, { results: [] });
