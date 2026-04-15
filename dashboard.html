@@ -1620,11 +1620,11 @@
 
         // Physics step
         function simulate() {
-          const repulsionStrength = 800;
-          const attractionStrength = 0.015;
-          const centerGravity = 0.01;
-          const damping = 0.85;
-          const springLength = 120;
+          const repulsionStrength = 3000;
+          const attractionStrength = 0.008;
+          const centerGravity = 0.005;
+          const damping = 0.82;
+          const springLength = 200;
 
           // Repulsion (all pairs)
           for (let i = 0; i < nodes.length; i++) {
@@ -1749,11 +1749,14 @@
               ctx.stroke();
             }
 
-            // Labels
-            if (showLabels && !isFaded) {
-              const label = n.title.length > 30 ? n.title.slice(0, 28) + '...' : n.title;
-              ctx.fillStyle = (isHovered || isSelected || isConnected) ? COLORS.labelHighlight : COLORS.label;
-              ctx.globalAlpha = (isHovered || isSelected) ? 1 : isConnected ? 0.8 : 0.6;
+            // Labels — show all when zoomed in, only active/connected at default zoom
+            const showThisLabel = showLabels && !isFaded && (
+              isHovered || isSelected || isConnected || viewScale > 1.2
+            );
+            if (showThisLabel) {
+              const label = n.title.length > 25 ? n.title.slice(0, 23) + '...' : n.title;
+              ctx.fillStyle = (isHovered || isSelected) ? COLORS.labelHighlight : isConnected ? '#bbbbbb' : COLORS.label;
+              ctx.globalAlpha = (isHovered || isSelected) ? 1 : isConnected ? 0.8 : 0.5;
               ctx.font = `${isHovered || isSelected ? '12' : '10'}px -apple-system, system-ui, sans-serif`;
               ctx.textAlign = 'center';
               ctx.fillText(label, n.x, n.y + r + 14);
