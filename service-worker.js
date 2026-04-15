@@ -2,7 +2,9 @@
 // Receives extracted content from content script, POSTs to GBrain, manages offline queue.
 
 const GBRAIN_URL = "http://localhost:19285/api/capture";
+const GBRAIN_STATS_URL = "http://localhost:19285/api/stats";
 const QUEUE_KEY = "captureQueue";
+const CAPTURE_COUNT_KEY = "captureCount";
 const MAX_QUEUE = 100;
 const FLUSH_ALARM = "flushQueue";
 
@@ -21,7 +23,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     });
   } catch (err) {
     console.error("Failed to inject content script:", err);
-    setBadge("!", "#cc0000");
+    setTempBadge("!", "#cc0000", 3000);
   }
 });
 
@@ -54,7 +56,7 @@ async function handleCapture(data, tabId) {
     });
 
     if (resp.ok || resp.status === 202) {
-      setBadge("\u2713", "#22863a");
+      await incrementCaptureCount();
       notifyTab(tabId, true);
     } else {
       throw new Error(`HTTP ${resp.status}`);
@@ -62,7 +64,7 @@ async function handleCapture(data, tabId) {
   } catch (err) {
     console.warn("GBrain unreachable, queuing capture:", err.message);
     await enqueue(payload);
-    setBadge("!", "#cc0000");
+    setTempBadge("!", "#cc0000", 3000);
     notifyTab(tabId, false);
     ensureAlarm();
   }
@@ -89,7 +91,42 @@ function setBadge(text, color) {
   if (!chrome.action) return;
   chrome.action.setBadgeText({ text }).catch(() => {});
   chrome.action.setBadgeBackgroundColor({ color }).catch(() => {});
-  setTimeout(() => chrome.action?.setBadgeText({ text: "" }).catch(() => {}), 2000);
+}
+
+function setTempBadge(text, color, ms = 2000) {
+  setBadge(text, color);
+  setTimeout(() => updateBadgeFromCount(), ms);
+}
+
+async function incrementCaptureCount() {
+  const { [CAPTURE_COUNT_KEY]: count = 0 } = await chrome.storage.local.get(CAPTURE_COUNT_KEY);
+  const newCount = count + 1;
+  await chrome.storage.local.set({ [CAPTURE_COUNT_KEY]: newCount });
+  setBadge(newCount.toString(), "#4ade80");
+}
+
+async function updateBadgeFromCount() {
+  const { [CAPTURE_COUNT_KEY]: count = 0 } = await chrome.storage.local.get(CAPTURE_COUNT_KEY);
+  if (count > 0) {
+    setBadge(count.toString(), "#4ade80");
+  } else {
+    setBadge("", "#4ade80");
+  }
+}
+
+async function syncBadgeFromServer() {
+  try {
+    const resp = await fetch(GBRAIN_STATS_URL, { signal: AbortSignal.timeout(3000) });
+    if (!resp.ok) return;
+    const stats = await resp.json();
+    const total = (stats.articles || 0) + (stats.books || 0);
+    if (total > 0) {
+      await chrome.storage.local.set({ [CAPTURE_COUNT_KEY]: total });
+      setBadge(total.toString(), "#4ade80");
+    }
+  } catch {
+    // Server offline — don't show badge
+  }
 }
 
 // ─── Offline queue ───────────────────────────────────────────────────
@@ -128,7 +165,7 @@ async function flushQueue() {
   await chrome.storage.local.set({ [QUEUE_KEY]: remaining });
 
   if (remaining.length === 0) {
-    setBadge("\u2713", "#22863a");
+    setTempBadge("\u2713", "#22863a", 2000);
   }
 }
 
@@ -147,5 +184,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// On startup, try to flush any queued items
+// On startup, try to flush any queued items and sync badge
 flushQueue();
+syncBadgeFromServer();

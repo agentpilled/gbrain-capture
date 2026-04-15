@@ -175,6 +175,125 @@ async function gbrainPut(slug: string, markdown: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// GBrain CLI helpers for query/list/stats
+// ---------------------------------------------------------------------------
+
+async function gbrainExec(args: string[]): Promise<string> {
+  const cmd = resolveGbrainCommand();
+  const proc = Bun.spawn([...cmd, ...args], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+
+  const exitCode = await proc.exited;
+  const stdout = await new Response(proc.stdout).text();
+
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text();
+    console.error(`[gbrain ${args[0]}] exit ${exitCode}: ${stderr}`);
+    throw new Error(`gbrain ${args[0]} failed: ${stderr}`);
+  }
+
+  return stdout;
+}
+
+async function handleSearch(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const query = url.searchParams.get('q') || '';
+  const limit = parseInt(url.searchParams.get('limit') || '10', 10);
+
+  if (!query.trim()) {
+    return corsResponse(200, { results: [] });
+  }
+
+  try {
+    const output = await gbrainExec(['query', query]);
+    const results = parseGbrainOutput(output, limit);
+    return corsResponse(200, { results });
+  } catch (err: any) {
+    console.error('[search]', err.message);
+    return corsResponse(200, { results: [] });
+  }
+}
+
+async function handleRecent(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const limit = parseInt(url.searchParams.get('limit') || '10', 10);
+
+  try {
+    const output = await gbrainExec(['list', '--limit', String(limit)]);
+    const results = parseGbrainOutput(output, limit);
+    return corsResponse(200, { results });
+  } catch (err: any) {
+    console.error('[recent]', err.message);
+    return corsResponse(200, { results: [] });
+  }
+}
+
+async function handleStats(): Promise<Response> {
+  try {
+    const output = await gbrainExec(['list', '--limit', '10000']);
+    const lines = output.trim().split('\n').filter(Boolean);
+
+    let articles = 0;
+    let books = 0;
+    let highlights = 0;
+
+    for (const line of lines) {
+      if (line.includes('kindle/') || line.toLowerCase().includes('kindle')) {
+        books++;
+      } else if (line.includes('web/')) {
+        articles++;
+      }
+      // Count highlight markers if present
+      const highlightMatch = line.match(/(\d+)\s*highlight/i);
+      if (highlightMatch) {
+        highlights += parseInt(highlightMatch[1], 10);
+      }
+    }
+
+    // If no explicit highlight counts, estimate from kindle entries
+    if (highlights === 0 && books > 0) {
+      highlights = books; // At minimum, each kindle entry is a highlight
+    }
+
+    return corsResponse(200, { articles, books, highlights });
+  } catch (err: any) {
+    console.error('[stats]', err.message);
+    return corsResponse(200, { articles: 0, books: 0, highlights: 0 });
+  }
+}
+
+function parseGbrainOutput(output: string, limit: number): Array<Record<string, string>> {
+  const lines = output.trim().split('\n').filter(Boolean);
+  const results: Array<Record<string, string>> = [];
+
+  for (const line of lines) {
+    if (results.length >= limit) break;
+
+    // Try to parse structured output; fall back to treating the line as a slug/title
+    // gbrain list output format varies — handle common patterns
+    const parts = line.split('\t');
+    const item: Record<string, string> = {};
+
+    if (parts.length >= 2) {
+      item.slug = parts[0].trim();
+      item.title = parts[1].trim();
+      if (parts[2]) item.date = parts[2].trim();
+      if (parts[3]) item.snippet = parts[3].trim();
+    } else {
+      // Single value — treat as slug
+      item.slug = line.trim();
+      item.title = line.trim().split('/').pop() || line.trim();
+    }
+
+    results.push(item);
+  }
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Request handlers
 // ---------------------------------------------------------------------------
 
@@ -265,6 +384,21 @@ const server = Bun.serve({
     // Capture endpoint
     if (url.pathname === '/api/capture' && req.method === 'POST') {
       return handleCapture(req);
+    }
+
+    // Search endpoint
+    if (url.pathname === '/api/search' && req.method === 'GET') {
+      return handleSearch(req);
+    }
+
+    // Recent captures endpoint
+    if (url.pathname === '/api/recent' && req.method === 'GET') {
+      return handleRecent(req);
+    }
+
+    // Stats endpoint
+    if (url.pathname === '/api/stats' && req.method === 'GET') {
+      return handleStats();
     }
 
     return corsResponse(404, { error: 'Not found' });

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Onboarding (hidden by default) -->
+  <div id="onboarding" class="onboarding" style="display:none">
+    <div id="step1" class="onboarding-step active">
+      <h2>&#x1F9E0; Welcome to GBrain</h2>
+      <p>Your personal knowledge base for AI.</p>
+      <p>Everything you read becomes searchable by Claude.</p>
+      <div class="onboarding-actions">
+        <button class="btn btn-primary" id="onb-next1">Next</button>
+      </div>
+    </div>
+
+    <div id="step2" class="onboarding-step">
+      <h2>Capture your first page</h2>
+      <p>Press the shortcut on any page to save it:</p>
+      <div class="shortcut-visual">
+        <kbd>&#x2318;</kbd><kbd>Shift</kbd><kbd>S</kbd>
+      </div>
+      <p>Or import your Kindle highlights:</p>
+      <p><a href="https://read.amazon.com/notebook" target="_blank">read.amazon.com/notebook</a></p>
+      <div class="onboarding-actions">
+        <button class="btn btn-primary" id="onb-next2">I've captured something</button>
+        <button class="btn btn-secondary" id="onb-skip2">Skip</button>
+      </div>
+    </div>
+
+    <div id="step3" class="onboarding-step">
+      <h2>Connect your AI</h2>
+      <p>Run this in your terminal:</p>
+      <div class="cmd-box" id="onb-cmd" title="Click to copy">
+        <span class="copy-icon">&#x1F4CB;</span>
+        <span>cd ~/Desktop/gbrain-capture && ./setup-mcp.sh</span>
+      </div>
+      <div class="copied-toast" id="onb-copied">Copied!</div>
+      <p>Then ask Claude about what you've read!</p>
+      <div class="onboarding-actions">
+        <button class="btn btn-primary" id="onb-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main popup (hidden until loaded) -->
+  <div id="main" style="display:none">
+    <div class="header">
+      <span class="header-title">&#x1F9E0; GBrain</span>
+      <span class="status-dot" id="statusDot" title="Checking..."></span>
+    </div>
+
+    <div id="onlineContent">
+      <div class="search-container">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search your brain..." autocomplete="off">
+      </div>
+
+      <div class="search-results" id="searchResults"></div>
+
+      <div id="recentSection">
+        <div class="section-label">Recent captures</div>
+        <div class="item-list" id="recentList"></div>
+      </div>
+
+      <div id="emptyState" class="empty-state" style="display:none">
+        <h3>Your brain is empty! Start capturing:</h3>
+        <div class="empty-hint">
+          <span>&#x2328;&#xFE0F;</span>
+          <span>Press <kbd>Cmd+Shift+S</kbd> on any page</span>
+        </div>
+        <div class="empty-hint">
+          <span>&#x1F4D6;</span>
+          <span>Import Kindle highlights from <a href="https://read.amazon.com/notebook" target="_blank">read.amazon.com/notebook</a></span>
+        </div>
+      </div>
+
+      <div class="stats-bar" id="statsBar" style="display:none"></div>
+    </div>
+
+    <div id="offlineContent" style="display:none">
+      <div class="offline-state">
+        <h3>Server offline</h3>
+        <p>Start the GBrain server to use the extension:</p>
+        <div class="cmd-box" id="offlineCmd" title="Click to copy">
+          <span class="copy-icon">&#x1F4CB;</span>
+          <span>cd ~/Desktop/gbrain-capture && bun run serve</span>
+        </div>
+        <div class="copied-toast" id="offlineCopied">Copied!</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
