@@ -355,6 +355,114 @@ function parseGbrainOutput(output: string, limit: number): Array<Record<string, 
 }
 
 // ---------------------------------------------------------------------------
+// Obsidian vault sync
+// ---------------------------------------------------------------------------
+
+async function obsidianSync(slug: string, markdown: string) {
+  try {
+    const configFile = import.meta.dir + '/.clipbrain.json';
+    const config = JSON.parse(await Bun.file(configFile).text());
+
+    if (!config.obsidian?.enabled || !config.obsidian?.vaultPath) return;
+
+    const vaultPath = config.obsidian.vaultPath;
+    const folder = config.obsidian.folder || 'ClipBrain';
+
+    // Extract title from markdown frontmatter
+    const titleMatch = markdown.match(/^title:\s*"?(.+?)"?\s*$/m);
+    const title = titleMatch ? titleMatch[1] : slug.split('/').pop()?.replace(/-/g, ' ') || slug;
+
+    // Determine subfolder (kindle or web)
+    const subfolder = slug.startsWith('kindle/') ? 'kindle' : 'web';
+
+    // Clean filename (remove chars not allowed in filenames)
+    const cleanTitle = title.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
+    const filename = cleanTitle.slice(0, 100) + '.md';
+
+    const dirPath = `${vaultPath}/${folder}/${subfolder}`;
+    const filePath = `${dirPath}/${filename}`;
+
+    // Create directory if needed
+    const fs = require('fs');
+    fs.mkdirSync(dirPath, { recursive: true });
+
+    // Write the file
+    await Bun.write(filePath, markdown);
+    console.log(`[obsidian] synced ${filePath}`);
+  } catch (err: any) {
+    // Don't fail the capture if obsidian sync fails
+    console.warn(`[obsidian] sync failed: ${err.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Config API
+// ---------------------------------------------------------------------------
+
+async function handleGetConfig(): Promise<Response> {
+  try {
+    const configFile = import.meta.dir + '/.clipbrain.json';
+    const config = JSON.parse(await Bun.file(configFile).text());
+    return corsResponse(200, config);
+  } catch {
+    return corsResponse(200, { obsidian: { enabled: false, vaultPath: '', folder: 'ClipBrain' } });
+  }
+}
+
+async function handlePostConfig(req: Request): Promise<Response> {
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return corsResponse(400, { error: 'Invalid JSON body' });
+  }
+
+  try {
+    const configFile = import.meta.dir + '/.clipbrain.json';
+    await Bun.write(configFile, JSON.stringify(body, null, 2) + '\n');
+    return corsResponse(200, { status: 'saved' });
+  } catch (err: any) {
+    return corsResponse(500, { error: err.message });
+  }
+}
+
+async function handleObsidianSyncAll(): Promise<Response> {
+  try {
+    const configFile = import.meta.dir + '/.clipbrain.json';
+    const config = JSON.parse(await Bun.file(configFile).text());
+
+    if (!config.obsidian?.enabled || !config.obsidian?.vaultPath) {
+      return corsResponse(400, { error: 'Obsidian sync not enabled' });
+    }
+
+    // List all items
+    const output = await gbrainExec(['list', '--limit', '10000']);
+    const lines = output.trim().split('\n').filter(Boolean);
+
+    let synced = 0;
+    let failed = 0;
+
+    for (const line of lines) {
+      const parts = line.split('\t');
+      const slug = parts[0]?.trim();
+      if (!slug || (!slug.startsWith('kindle/') && !slug.startsWith('web/'))) continue;
+
+      try {
+        const content = await gbrainExec(['get', slug]);
+        await obsidianSync(slug, content);
+        synced++;
+      } catch {
+        failed++;
+      }
+    }
+
+    return corsResponse(200, { status: 'done', synced, failed });
+  } catch (err: any) {
+    return corsResponse(500, { error: err.message });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Request handlers
 // ---------------------------------------------------------------------------
 
@@ -409,6 +517,9 @@ async function handleCapture(req: Request): Promise<Response> {
   }).catch((err) => {
     console.error(`[gbrain put] error:`, err);
   });
+
+  // Obsidian sync (parallel, independent of gbrainPut)
+  obsidianSync(slug, markdown);
 
   return corsResponse(202, { status: 'accepted', slug });
 }
@@ -477,6 +588,19 @@ const server = Bun.serve({
     // Page content endpoint
     if (url.pathname === '/api/page' && req.method === 'GET') {
       return handlePage(req);
+    }
+
+    // Config endpoints
+    if (url.pathname === '/api/config' && req.method === 'GET') {
+      return handleGetConfig();
+    }
+    if (url.pathname === '/api/config' && req.method === 'POST') {
+      return handlePostConfig(req);
+    }
+
+    // Obsidian bulk sync
+    if (url.pathname === '/api/obsidian-sync-all' && req.method === 'POST') {
+      return handleObsidianSyncAll();
     }
 
     return corsResponse(404, { error: 'Not found' });

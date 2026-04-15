@@ -313,6 +313,68 @@
       padding: 40px 0;
       text-align: center;
     }
+
+    /* Status bar */
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 6px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--text-muted);
+      z-index: 100;
+    }
+
+    .status-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .status-dot.connected { background: var(--green); }
+
+    .status-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sync-all-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-family: var(--mono);
+      padding: 2px 8px;
+      cursor: pointer;
+      transition: border-color 150ms ease, color 150ms ease;
+    }
+
+    .sync-all-btn:hover {
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+    }
+
+    .sync-all-btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
   </style>
 </head>
 <body>
@@ -348,6 +410,16 @@
 
     <div class="card-list" id="cardList">
       <div class="loading-state">Loading...</div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-bar-left">
+      <span class="status-dot" id="obsidianDot"></span>
+      <span id="obsidianStatus">Obsidian: checking...</span>
+    </div>
+    <div class="status-bar-right">
+      <button class="sync-all-btn" id="syncAllBtn" style="display:none;">Sync all to Obsidian</button>
     </div>
   </div>
 
@@ -676,6 +748,55 @@
       }
 
       init();
+
+      // Obsidian status bar
+      const obsidianDot = $('#obsidianDot');
+      const obsidianStatus = $('#obsidianStatus');
+      const syncAllBtn = $('#syncAllBtn');
+
+      async function loadObsidianStatus() {
+        try {
+          const config = await fetchJSON('/api/config');
+          const obs = config.obsidian || {};
+          if (obs.enabled && obs.vaultPath) {
+            obsidianDot.classList.add('connected');
+            // Shorten path for display: replace home dir with ~
+            const shortPath = obs.vaultPath.replace(/^\/Users\/[^/]+/, '~');
+            obsidianStatus.textContent = `Obsidian: synced to ${shortPath}/${obs.folder || 'ClipBrain'}`;
+            syncAllBtn.style.display = '';
+          } else {
+            obsidianDot.classList.remove('connected');
+            obsidianStatus.textContent = 'Obsidian: not connected';
+            syncAllBtn.style.display = 'none';
+          }
+        } catch {
+          obsidianDot.classList.remove('connected');
+          obsidianStatus.textContent = 'Obsidian: not connected';
+          syncAllBtn.style.display = 'none';
+        }
+      }
+
+      syncAllBtn.addEventListener('click', async () => {
+        syncAllBtn.disabled = true;
+        syncAllBtn.textContent = 'Syncing...';
+        try {
+          const r = await fetch('/api/obsidian-sync-all', { method: 'POST' });
+          const res = await r.json();
+          syncAllBtn.textContent = `Done (${res.synced || 0} synced)`;
+          setTimeout(() => {
+            syncAllBtn.textContent = 'Sync all to Obsidian';
+            syncAllBtn.disabled = false;
+          }, 3000);
+        } catch {
+          syncAllBtn.textContent = 'Sync failed';
+          setTimeout(() => {
+            syncAllBtn.textContent = 'Sync all to Obsidian';
+            syncAllBtn.disabled = false;
+          }, 3000);
+        }
+      });
+
+      loadObsidianStatus();
     })();
   </script>
 </body>

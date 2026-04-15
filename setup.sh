@@ -138,7 +138,51 @@ if [ -z "$CONFIGURED" ]; then
   echo "  ⚠ No AI tools detected. Run ./setup-mcp.sh manually to configure."
 fi
 
-# ─── Step 5: Install auto-start (macOS) ──────────────────────────────────────
+# ─── Step 5: Detect Obsidian ─────────────────────────────────────────────────
+echo ""
+echo "→ Checking for Obsidian..."
+
+OBSIDIAN_VAULT=""
+# Find .obsidian directories (indicating a vault)
+for vault_dir in $(find "$HOME/Documents" "$HOME/Desktop" "$HOME" -maxdepth 4 -name ".obsidian" -type d 2>/dev/null | head -5); do
+  OBSIDIAN_VAULT="$(dirname "$vault_dir")"
+  break
+done
+
+if [ -n "$OBSIDIAN_VAULT" ]; then
+  echo "  Found vault: $OBSIDIAN_VAULT"
+
+  # Create ClipBrain folder in vault
+  mkdir -p "$OBSIDIAN_VAULT/ClipBrain/kindle"
+  mkdir -p "$OBSIDIAN_VAULT/ClipBrain/web"
+
+  # Write config
+  cat > "$SCRIPT_DIR/.clipbrain.json" <<JSONEOF
+{
+  "obsidian": {
+    "enabled": true,
+    "vaultPath": "$OBSIDIAN_VAULT",
+    "folder": "ClipBrain"
+  }
+}
+JSONEOF
+
+  echo "  ✓ Obsidian sync enabled (captures → $OBSIDIAN_VAULT/ClipBrain/)"
+else
+  # No obsidian, write disabled config
+  cat > "$SCRIPT_DIR/.clipbrain.json" <<JSONEOF
+{
+  "obsidian": {
+    "enabled": false,
+    "vaultPath": "",
+    "folder": "ClipBrain"
+  }
+}
+JSONEOF
+  echo "  Obsidian not found (install it later and re-run setup)"
+fi
+
+# ─── Step 6: Install auto-start (macOS) ──────────────────────────────────────
 if [ "$(uname)" = "Darwin" ]; then
   echo ""
   echo "→ Installing background service..."

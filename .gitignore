@@ -3,3 +3,4 @@ bin/*
 !bin/.gitkeep
 .gstack/
 .highlight-count*
+.clipbrain.json
