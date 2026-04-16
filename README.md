@@ -1,123 +1,106 @@
 # ClipBrain
 
-Your AI doesn't know what you've read. ClipBrain fixes that.
+**Your AI doesn't know what you've read. ClipBrain fixes that.**
 
-Save web articles and Kindle highlights to a local knowledge base. When you talk to Claude or OpenClaw, they can search everything you've captured and reference it in conversation.
+An open source Chrome extension that captures everything you read and makes it searchable by your AI. Built on top of [@garrytan](https://twitter.com/garrytan)'s [GBrain](https://github.com/nichochar/gbrain) knowledge engine. Inspired by [@karpathy](https://twitter.com/karpathy)'s [post about building personal knowledge bases with LLMs](https://x.com/karpathy/status/20398050659526644595).
 
-**"What did I highlight in Sapiens?"** Just works.
+One shortcut: **Cmd+Shift+S**. Your AI never starts from zero again.
+
+## See it in action
+
+### Clip any page
+
+Press **Cmd+Shift+S** on any page. The extension captures the content, AI-processes it, and stores it locally. Your AI can search it instantly.
+
+![Capturing Karpathy's tweet about LLM knowledge bases](screenshots/popup-capture.png)
+
+### Import all your Kindle highlights
+
+Go to [read.amazon.com/notebook](https://read.amazon.com/notebook) and click **Import to ClipBrain**. It clicks through every book, extracts every highlight and note. 20 books, 871 highlights, 30 seconds.
+
+![One-click Kindle import — Awareness, Meditations, Range, Influence, and more](screenshots/kindle-import.png)
+
+### AI summaries, tags, and connections
+
+Every capture gets post-processed: a 2-3 sentence summary, semantic tags, and automatic connections to your other captures. Your AI doesn't just store things. It thinks.
+
+![Dashboard showing AI-generated summaries, tags like "ambition", "startups", "innovation", and connections between captures](screenshots/dashboard-ai.png)
 
 ## Get started
 
 You need [Bun](https://bun.sh) and Chrome.
 
 ```bash
-git clone https://github.com/agentpilled/gbrain-capture
-cd gbrain-capture
+git clone https://github.com/agentpilled/clipbrain
+cd clipbrain
 ./setup.sh
 ```
 
-This single command:
-- Installs all dependencies
-- Builds the knowledge engine
-- Creates a local database (everything stays on your machine)
-- Auto-configures Claude Code and/or OpenClaw
-- Connects to Obsidian (if installed)
-- Installs a background service so the server runs automatically
+This single command installs dependencies, builds the knowledge engine, creates a local database, auto-configures your AI tools, connects to Obsidian (if installed), and starts a background service.
 
 Then load the Chrome extension:
 
 1. Go to `chrome://extensions`
 2. Turn on **Developer mode** (top right)
-3. Click **Load unpacked** → pick the `gbrain-capture` folder
+3. Click **Load unpacked** and select the `clipbrain` folder
 
-Done.
+Done. Press **Cmd+Shift+S** on any page.
 
-## Capturing content
+## What you can capture
 
-### Web articles
-
-Press **Cmd+Shift+S** (Mac) or **Ctrl+Shift+S** (Windows/Linux) on any page.
-
-Or click the ClipBrain extension icon → **Capture this page**.
-
-### Kindle highlights
-
-1. Go to [read.amazon.com/notebook](https://read.amazon.com/notebook)
-2. Click **Import to ClipBrain** (bottom right)
-3. Choose **This book** or **All books**
-
-The extension clicks through each book in your library, extracts all highlights and notes, and imports them.
-
-### YouTube videos
-
-Press **Cmd+Shift+S** on any YouTube video to capture its transcript.
-
-The transcript is extracted with timestamps, indexed, and searchable. Ask your AI: "What did that Y Combinator video say about startup ideas?"
-
-### PDFs
-
-Drag any PDF onto the [dashboard](http://localhost:19285) to import it. Or click the upload button.
-
-The text is extracted, indexed, and searchable by your AI.
-
-## Dashboard
-
-Open **http://localhost:19285** to browse your knowledge base:
-
-- Search across all captures
-- Filter by books or articles
-- Expand any book to see all highlights and notes
-- View stats
-
-The extension popup also has a link: **Full dashboard**.
-
-## Obsidian sync
-
-If you use Obsidian, ClipBrain syncs your captures as markdown files to your vault.
-
-**Auto-detected during setup**: if Obsidian is installed, `setup.sh` finds your vault and enables sync automatically. A `ClipBrain/` folder appears in your vault with all captures.
-
-**Manual setup**: if you install Obsidian later, open the dashboard (localhost:19285) and click **Connect Obsidian** in the bottom bar. Enter your vault path and it syncs everything.
-
-Your captures appear in Obsidian as clean markdown with frontmatter, organized in `ClipBrain/kindle/` and `ClipBrain/web/`.
+| Source | How | What gets stored |
+|--------|-----|-----------------|
+| **Web articles** | Cmd+Shift+S on any page | Full article text via Readability.js |
+| **Tweets** | Cmd+Shift+S on any tweet | Tweet content + thread |
+| **Kindle highlights** | One-click import from read.amazon.com | All highlights, notes, and book metadata |
+| **YouTube videos** | Cmd+Shift+S on any video | Full transcript with timestamps |
+| **PDFs** | Drag onto dashboard or upload | Extracted text, indexed and searchable |
 
 ## Using with your AI
 
-After setup, your AI already has access. Just talk naturally:
+After setup, your AI already has access via MCP. Just talk naturally:
 
 - *"What did I highlight in Awareness by Anthony de Mello?"*
 - *"Find my notes about storytelling"*
-- *"What books have I read about psychology?"*
-- *"Summarize the highlights from The Bitcoin Standard"*
+- *"What did that YouTube video say about AI moats?"*
+- *"Summarize what I've read about decision-making"*
 
-Works with **Claude Code**, **OpenClaw**, **Claude Desktop**, and any MCP-compatible tool.
+Works with **Claude Code**, **OpenClaw**, **Claude Desktop**, **Cursor**, and any MCP-compatible tool.
+
+## Dashboard
+
+Open **http://localhost:19285** to browse your knowledge base.
+
+- Filter by books, articles, PDFs, videos
+- Search across everything
+- View AI summaries, tags, and connections
+- Explore the knowledge graph
+- Upload PDFs via drag and drop
+
+## Obsidian sync
+
+If you use Obsidian, ClipBrain auto-syncs captures as markdown to your vault. Each capture becomes a `.md` file with frontmatter, wikilinks, and AI summaries. Auto-detected during setup.
 
 ## How it works
 
 ```
   You browse & read                        You ask your AI
-        │                                        │
+        |                                        |
   Cmd+Shift+S or                          "What did I read
   Kindle import                            about X?"
-        │                                        │
-        ▼                                        ▼
-  ┌───────────┐    ┌──────────────┐    ┌──────────────┐
-  │  Chrome    │───▶│  Capture     │    │  MCP Server  │
-  │  Extension │    │  Server      │    │  (auto)      │
-  └───────────┘    │  (auto)      │    └──────┬───────┘
-                   └──────┬───────┘           │
-                          │ also writes .md    │
-                          ▼                    ▼
-                   ┌──────────────────────────────┐
-                   │  Local database (pgvector)    │
-                   │  + Obsidian vault (optional)  │
-                   └──────────────────────────────┘
+        |                                        |
+        v                                        v
+  +-----------+    +--------------+    +--------------+
+  |  Chrome   |--->|  Capture     |    |  MCP Server  |
+  |  Extension|    |  Server      |    |  (auto)      |
+  +-----------+    +------+-------+    +------+-------+
+                          |                   |
+                          v                   v
+                   +------------------------------+
+                   |  Local database (pgvector)    |
+                   |  + Obsidian vault (optional)  |
+                   +------------------------------+
 ```
-
-1. **Capture**: Chrome extension extracts content (Readability.js for web, DOM parsing for Kindle)
-2. **Index**: Chunks the text, generates embeddings (OpenAI), stores in a local Postgres database
-3. **Sync**: Writes markdown to your Obsidian vault (if connected)
-4. **Search**: Your AI calls ClipBrain's search via MCP (semantic + keyword hybrid)
 
 Everything runs locally. No data leaves your machine except for generating embeddings (OpenAI API).
 
@@ -125,6 +108,12 @@ Everything runs locally. No data leaves your machine except for generating embed
 
 - [Bun](https://bun.sh)
 - Chrome or Chromium
-- `OPENAI_API_KEY` environment variable (for embeddings and smart processing)
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) (optional, for YouTube transcript capture)
+- `OPENAI_API_KEY` environment variable (for embeddings and AI processing)
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) (optional, for YouTube transcripts)
 - Obsidian (optional, for vault sync)
+
+## Credits
+
+- **[GBrain](https://github.com/nichochar/gbrain)** by [@garrytan](https://twitter.com/garrytan) — the knowledge engine powering ClipBrain (pgvector, hybrid search, MCP)
+- **[@karpathy](https://twitter.com/karpathy)** — his [post about LLM knowledge bases](https://x.com/karpathy/status/20398050659526644595) described the exact system I wanted to build
+- Built with **[Claude Code](https://claude.ai/claude-code)**
