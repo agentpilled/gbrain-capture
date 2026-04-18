@@ -14,6 +14,12 @@ const $emptyState = document.getElementById("emptyState");
 const $statsBar = document.getElementById("statsBar");
 const $onlineContent = document.getElementById("onlineContent");
 const $offlineContent = document.getElementById("offlineContent");
+const $gmailAccessCard = document.getElementById("gmailAccessCard");
+const $gmailAccessTitle = document.getElementById("gmailAccessTitle");
+const $gmailAccessSubtitle = document.getElementById("gmailAccessSubtitle");
+const $gmailAccessBtn = document.getElementById("gmailAccessBtn");
+
+const GMAIL_ORIGIN = "https://mail.google.com/*";
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -110,6 +116,51 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+function isGmailUrl(url) {
+  return typeof url === "string" && url.startsWith("https://mail.google.com/");
+}
+
+async function hasGmailPermission() {
+  return chrome.permissions.contains({ origins: [GMAIL_ORIGIN] });
+}
+
+async function ensureGmailScriptForTab(tabId) {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["gmail-content-script.js"],
+  });
+}
+
+async function getActiveTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab || null;
+}
+
+async function refreshGmailAccessCard() {
+  if (!$gmailAccessCard || !$gmailAccessBtn) return;
+
+  const tab = await getActiveTab();
+  if (!tab || !isGmailUrl(tab.url)) {
+    $gmailAccessCard.style.display = "none";
+    return;
+  }
+
+  const granted = await hasGmailPermission();
+  $gmailAccessCard.style.display = "";
+
+  if (granted) {
+    $gmailAccessTitle.textContent = "Gmail capture is on";
+    $gmailAccessSubtitle.textContent = "ClipBrain can show the clip button inside Gmail.";
+    $gmailAccessBtn.textContent = "Re-inject now";
+    $gmailAccessBtn.dataset.mode = "reinject";
+  } else {
+    $gmailAccessTitle.textContent = "Enable Gmail capture";
+    $gmailAccessSubtitle.textContent = "Allow ClipBrain to show the clip button inside Gmail.";
+    $gmailAccessBtn.textContent = "Enable Gmail";
+    $gmailAccessBtn.dataset.mode = "request";
+  }
 }
 
 function setupCopyBox(boxId, toastId) {
@@ -323,12 +374,64 @@ function setupCaptureButton() {
   });
 }
 
+function setupGmailAccessButton() {
+  if (!$gmailAccessBtn) return;
+
+  $gmailAccessBtn.addEventListener("click", async () => {
+    const original = $gmailAccessBtn.textContent;
+    $gmailAccessBtn.disabled = true;
+
+    try {
+      const tab = await getActiveTab();
+      if (!tab?.id || !isGmailUrl(tab.url)) {
+        throw new Error("Open Gmail in the active tab first");
+      }
+
+      if ($gmailAccessBtn.dataset.mode === "request") {
+        $gmailAccessBtn.textContent = "Enabling...";
+        const granted = await chrome.permissions.request({ origins: [GMAIL_ORIGIN] });
+        if (!granted) {
+          $gmailAccessBtn.textContent = "Permission denied";
+          setTimeout(async () => {
+            $gmailAccessBtn.disabled = false;
+            await refreshGmailAccessCard();
+          }, 1200);
+          return;
+        }
+      } else {
+        $gmailAccessBtn.textContent = "Injecting...";
+      }
+
+      await ensureGmailScriptForTab(tab.id);
+      $gmailAccessBtn.textContent = "Enabled ✓";
+      await refreshGmailAccessCard();
+    } catch (err) {
+      console.error("Gmail enable failed:", err);
+      $gmailAccessBtn.textContent = "Try again";
+      setTimeout(async () => {
+        $gmailAccessBtn.disabled = false;
+        await refreshGmailAccessCard();
+      }, 1200);
+      return;
+    }
+
+    $gmailAccessBtn.disabled = false;
+    if ($gmailAccessBtn.dataset.mode === "reinject") {
+      $gmailAccessBtn.textContent = "Re-inject now";
+    } else {
+      $gmailAccessBtn.textContent = original;
+      await refreshGmailAccessCard();
+    }
+  });
+}
+
 // ─── Init ────────────────────────────────────────────────────────────
 
 async function init() {
   setupOnboarding();
   setupCopyBox("offlineCmd", "offlineCopied");
   setupCaptureButton();
+  setupGmailAccessButton();
 
   $searchInput.addEventListener("input", (e) => doSearch(e.target.value));
 
@@ -397,6 +500,7 @@ async function init() {
   }
 
   $main.style.display = "block";
+  await refreshGmailAccessCard();
   loadMainContent();
 }
 

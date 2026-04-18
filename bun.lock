@@ -326,7 +326,7 @@
 
     "function-bind": ["function-bind@1.1.2", "", {}, "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA=="],
 
-    "gbrain": ["gbrain@github:garrytan/gbrain#d547a64", { "dependencies": { "@anthropic-ai/sdk": "^0.30.0", "@aws-sdk/client-s3": "^3.1028.0", "@electric-sql/pglite": "^0.4.4", "@modelcontextprotocol/sdk": "^1.0.0", "gray-matter": "^4.0.3", "marked": "^18.0.0", "openai": "^4.0.0", "pgvector": "^0.2.0", "postgres": "^3.4.0" }, "bin": { "gbrain": "src/cli.ts" } }, "garrytan-gbrain-d547a64", "sha512-7gKF2pYuBaNESQ8LXd6N3PMRfiWsXHkf/jft+ZyZdbkFhJMog77Ex8dPg4Sbir5LmESxEEq2bo1Crd2zvP1Vhg=="],
+    "gbrain": ["gbrain@github:garrytan/gbrain#81b3f7a", { "dependencies": { "@anthropic-ai/sdk": "^0.30.0", "@aws-sdk/client-s3": "^3.1028.0", "@electric-sql/pglite": "^0.4.4", "@modelcontextprotocol/sdk": "^1.0.0", "gray-matter": "^4.0.3", "marked": "^18.0.0", "openai": "^4.0.0", "pgvector": "^0.2.0", "postgres": "^3.4.0" }, "bin": { "gbrain": "src/cli.ts" } }, "garrytan-gbrain-81b3f7a", "sha512-JHe9truvUTZEubjOEVPS0+BB2yBc5gL4/FZwNjLZawJSFj3VYFluGKDCjTJNjJi4FS8oLYAkLmHOPLgT1mgUeg=="],
 
     "get-intrinsic": ["get-intrinsic@1.3.0", "", { "dependencies": { "call-bind-apply-helpers": "^1.0.2", "es-define-property": "^1.0.1", "es-errors": "^1.3.0", "es-object-atoms": "^1.1.1", "function-bind": "^1.1.2", "get-proto": "^1.0.1", "gopd": "^1.2.0", "has-symbols": "^1.1.0", "hasown": "^2.0.2", "math-intrinsics": "^1.1.0" } }, "sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ=="],
 

@@ -17,12 +17,16 @@
       '.a3s',               // Fallback without aiL
       '.ii.gt',             // Alternative body container
       'div[data-message-id] .a3s',
+      'div[data-message-id] .ii.gt',
     ],
     // Subject line
     subject: [
       'h2.hP',             // Conversation subject heading
       'h2[data-thread-perm-id]',
+      'h2[data-legacy-thread-id]',
+      'h2[data-thread-id]',
       '.ha h2',            // Subject within header area
+      '[role="main"] h2',
     ],
     // Sender name + email
     sender: [
@@ -41,6 +45,8 @@
       '.h7',               // Conversation view container
       '.adn.ads',          // Message pane
       'div[role="list"]',  // Message list in conversation
+      'div[data-message-id]',
+      '[role="main"] .nH.hx',
     ],
   };
 
@@ -62,12 +68,25 @@
 
   // ─── Extraction ──────────────────────────────────────────────────────
 
+  function getTabTitleSubject() {
+    const raw = document.title || '';
+    const title = raw.replace(/\s+-\s+Gmail$/, '').trim();
+    if (!title || /(^|\s)gmail$/i.test(title)) return '';
+    return title;
+  }
+
+  function hasOpenEmailView() {
+    if (qAll(SELECTORS.body).length > 0) return true;
+    if (qAll(SELECTORS.emailOpen).length > 0) return true;
+    return false;
+  }
+
   function extractEmail() {
     // Subject
     const subjectEl = q(SELECTORS.subject);
-    const subject = subjectEl?.textContent?.trim() || '';
+    const subject = subjectEl?.textContent?.trim() || getTabTitleSubject();
 
-    if (!subject) {
+    if (!subject && !hasOpenEmailView()) {
       return null; // No email open
     }
 
@@ -109,7 +128,13 @@
       return null; // No content to capture
     }
 
-    return { subject, from, fromEmail, date, body: bodyText };
+    return {
+      subject: subject || 'Untitled email',
+      from,
+      fromEmail,
+      date,
+      body: bodyText,
+    };
   }
 
   function extractCleanText(el) {
@@ -298,13 +323,15 @@
 
   function checkEmailState() {
     const subjectEl = q(SELECTORS.subject);
-    const subject = subjectEl?.textContent?.trim() || '';
+    const subject = subjectEl?.textContent?.trim() || getTabTitleSubject();
+    const isOpen = hasOpenEmailView();
+    const emailKey = subject || `open:${qAll(SELECTORS.body).length}`;
 
-    if (subject && subject !== lastEmailSubject) {
+    if (isOpen && emailKey !== lastEmailSubject) {
       // New email opened
-      lastEmailSubject = subject;
+      lastEmailSubject = emailKey;
       createClipButton();
-    } else if (!subject && lastEmailSubject) {
+    } else if (!isOpen && lastEmailSubject) {
       // Email closed (back to inbox)
       lastEmailSubject = '';
       removeClipButton();

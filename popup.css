@@ -489,6 +489,45 @@ body {
   border-color: #444444;
 }
 
+.gmail-access-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 16px 4px;
+  padding: 12px;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #262626 0%, #222222 100%);
+}
+
+.gmail-access-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.gmail-access-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #dcddde;
+}
+
+.gmail-access-subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #999999;
+}
+
+.btn-gmail {
+  flex: 0 0 auto;
+  background: #1f3b2f;
+  color: #d7ffe6;
+  border: 1px solid #2d5a42;
+}
+
+.btn-gmail:hover {
+  background: #244735;
+}
+
 /* ─── Scrollbar ──────────────────────────────────────────────────── */
 
 body::-webkit-scrollbar {

@@ -9,6 +9,41 @@ const CAPTURE_COUNT_KEY = "captureCount";
 const MAX_QUEUE = 100;
 const FLUSH_ALARM = "flushQueue";
 
+function isGmailUrl(url) {
+  return typeof url === "string" && url.startsWith("https://mail.google.com/");
+}
+
+async function ensureGmailContentScript(tabId, url) {
+  if (!tabId || !isGmailUrl(url)) return;
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["gmail-content-script.js"],
+    });
+  } catch (err) {
+    const message = err?.message || String(err || "");
+    // Ignore duplicate injections and transient restricted-tab states.
+    if (
+      message.includes("Cannot access contents of") ||
+      message.includes("Frame with ID") ||
+      message.includes("Extension context invalidated")
+    ) {
+      return;
+    }
+    console.warn("ClipBrain: failed to ensure Gmail content script:", message);
+  }
+}
+
+async function ensureGmailScriptInOpenTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ url: ["https://mail.google.com/*"] });
+    await Promise.all(tabs.map((tab) => ensureGmailContentScript(tab.id, tab.url)));
+  } catch (err) {
+    console.warn("ClipBrain: failed to scan Gmail tabs:", err?.message || err);
+  }
+}
+
 // ─── Command listener ────────────────────────────────────────────────
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "capture-page") return;
@@ -31,6 +66,30 @@ chrome.commands.onCommand.addListener(async (command) => {
   } catch (err) {
     console.error("Failed to inject content script:", err);
     setTempBadge("!", "#cc0000", 3000);
+  }
+});
+
+// ─── Keep Gmail content script injected across tab reloads / SPA use ────────
+chrome.runtime.onInstalled.addListener(() => {
+  ensureGmailScriptInOpenTabs();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  ensureGmailScriptInOpenTabs();
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === "complete") {
+    ensureGmailContentScript(tabId, tab.url);
+  }
+});
+
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    await ensureGmailContentScript(tabId, tab.url);
+  } catch (err) {
+    console.warn("ClipBrain: failed to inspect active tab:", err?.message || err);
   }
 });
 
