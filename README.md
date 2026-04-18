@@ -46,12 +46,17 @@ Then load the Chrome extension:
 
 Done. Press **Cmd+Shift+S** on any page.
 
+For Gmail, open Gmail first, then open the ClipBrain popup once and click
+**Enable Gmail**. Chrome will show a one-time permission prompt so ClipBrain
+can display the floating clip button inside Gmail.
+
 ## What you can capture
 
 | Source | How | What gets stored |
 |--------|-----|-----------------|
 | **Web articles** | Cmd+Shift+S on any page | Full article text via Readability.js |
 | **Tweets** | Cmd+Shift+S on any tweet | Tweet content + thread |
+| **Gmail threads** | Open Gmail, click **Enable Gmail** once in the popup, then use the floating button or Cmd+Shift+S | Subject, sender, date, and clean thread text |
 | **Kindle highlights** | One-click import from read.amazon.com | All highlights, notes, and book metadata |
 | **YouTube videos** | Cmd+Shift+S on any video | Full transcript with timestamps |
 | **PDFs** | Drag onto dashboard or upload | Extracted text, indexed and searchable |
