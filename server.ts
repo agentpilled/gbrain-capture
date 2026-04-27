@@ -276,17 +276,52 @@ async function handleRecent(req: Request): Promise<Response> {
   }
 }
 
-// Track highlight counts per kindle book in a local JSON file
-async function updateHighlightCount(slug: string, count: number) {
+// Track highlight counts per kindle book in a local JSON file.
+// Returns the delta (new highlights since last capture).
+async function updateHighlightCount(slug: string, count: number): Promise<number> {
   const trackingFile = import.meta.dir + '/.highlight-counts.json';
   let data: Record<string, number> = {};
   try {
     data = JSON.parse(await Bun.file(trackingFile).text());
   } catch {}
+  const prev = data[slug] || 0;
   data[slug] = count;
   const total = Object.values(data).reduce((sum, c) => sum + c, 0);
   await Bun.write(trackingFile, JSON.stringify(data));
   await Bun.write(import.meta.dir + '/.highlight-count', String(total));
+  return Math.max(0, count - prev);
+}
+
+// Append-only capture log for the daily digest.
+// Each line is a JSON object — robust to crashes, easy to filter by date.
+type CaptureLogEntry = {
+  slug: string;
+  type: 'kindle' | 'web' | 'youtube' | 'email' | 'pdf';
+  title: string;
+  capturedAt: string;
+  newHighlights?: number;
+  url?: string;
+  author?: string;
+  channel?: string;
+  from?: string;
+};
+
+async function recordCapture(entry: CaptureLogEntry): Promise<void> {
+  const logFile = import.meta.dir + '/.captures.jsonl';
+  try {
+    const fs = await import('node:fs/promises');
+    await fs.appendFile(logFile, JSON.stringify(entry) + '\n');
+  } catch (err: any) {
+    console.warn('[recordCapture] failed:', err.message);
+  }
+}
+
+function detectCaptureType(slug: string): CaptureLogEntry['type'] {
+  if (slug.startsWith('kindle/')) return 'kindle';
+  if (slug.startsWith('youtube/')) return 'youtube';
+  if (slug.startsWith('email/')) return 'email';
+  if (slug.startsWith('pdf/')) return 'pdf';
+  return 'web';
 }
 
 async function handleStats(): Promise<Response> {
@@ -332,6 +367,143 @@ async function handleStats(): Promise<Response> {
     console.error('[stats]', err.message);
     return corsResponse(200, { articles: 0, books: 0, pdfs: 0, videos: 0, emails: 0, highlights: 0 });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Daily digest — what was captured since a given timestamp
+// ---------------------------------------------------------------------------
+
+function formatTitleCase(slug: string): string {
+  return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function formatDigestMarkdown(opts: {
+  since: Date;
+  kindle: CaptureLogEntry[];
+  web: CaptureLogEntry[];
+  youtube: CaptureLogEntry[];
+  email: CaptureLogEntry[];
+  pdf: CaptureLogEntry[];
+}): string {
+  const { since, kindle, web, youtube, email, pdf } = opts;
+  const total = kindle.length + web.length + youtube.length + email.length + pdf.length;
+  const sinceLabel = since.toISOString().slice(0, 10);
+
+  if (total === 0) {
+    return `📚 Sin lecturas nuevas desde ${sinceLabel}.`;
+  }
+
+  const lines: string[] = [`📚 *Reading digest* — desde ${sinceLabel}`, ''];
+
+  if (kindle.length) {
+    const totalNew = kindle.reduce((s, k) => s + (k.newHighlights || 0), 0);
+    lines.push(`*Kindle* — ${totalNew} highlight${totalNew === 1 ? '' : 's'} nuevo${totalNew === 1 ? '' : 's'} en ${kindle.length} libro${kindle.length === 1 ? '' : 's'}`);
+    for (const k of kindle) {
+      const author = k.author ? ` — ${formatTitleCase(k.author)}` : '';
+      const count = k.newHighlights ? ` (${k.newHighlights} nuevo${k.newHighlights === 1 ? '' : 's'})` : '';
+      lines.push(`- ${k.title}${author}${count}`);
+    }
+    lines.push('');
+  }
+
+  if (web.length) {
+    lines.push(`*Web* — ${web.length} artículo${web.length === 1 ? '' : 's'}`);
+    for (const w of web) {
+      const domain = w.url ? new URL(w.url).hostname.replace(/^www\./, '') : '';
+      lines.push(`- ${w.title}${domain ? ` — ${domain}` : ''}`);
+    }
+    lines.push('');
+  }
+
+  if (youtube.length) {
+    lines.push(`*YouTube* — ${youtube.length} video${youtube.length === 1 ? '' : 's'}`);
+    for (const y of youtube) {
+      lines.push(`- ${y.title}${y.channel ? ` — ${y.channel}` : ''}`);
+    }
+    lines.push('');
+  }
+
+  if (email.length) {
+    lines.push(`*Email* — ${email.length} newsletter${email.length === 1 ? '' : 's'}`);
+    for (const e of email) {
+      lines.push(`- ${e.title}${e.from ? ` — ${e.from}` : ''}`);
+    }
+    lines.push('');
+  }
+
+  if (pdf.length) {
+    lines.push(`*PDF* — ${pdf.length} documento${pdf.length === 1 ? '' : 's'}`);
+    for (const p of pdf) lines.push(`- ${p.title}`);
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
+}
+
+async function handleDigest(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const sinceParam = url.searchParams.get('since');
+  const daysParam = url.searchParams.get('days');
+
+  let sinceDate: Date;
+  if (sinceParam) {
+    sinceDate = new Date(sinceParam);
+    if (isNaN(sinceDate.getTime())) {
+      return corsResponse(400, { error: 'Invalid since (use ISO 8601 or YYYY-MM-DD)' });
+    }
+  } else {
+    const days = daysParam ? Math.max(1, parseInt(daysParam, 10) || 1) : 1;
+    sinceDate = new Date(Date.now() - days * 24 * 3600 * 1000);
+  }
+
+  const logFile = import.meta.dir + '/.captures.jsonl';
+  let entries: CaptureLogEntry[] = [];
+  try {
+    const text = await Bun.file(logFile).text();
+    entries = text.trim().split('\n').filter(Boolean).map(line => {
+      try { return JSON.parse(line) as CaptureLogEntry; } catch { return null; }
+    }).filter((e): e is CaptureLogEntry => e !== null);
+  } catch {
+    // No log yet — return empty digest
+  }
+
+  const filtered = entries.filter(e => {
+    const t = new Date(e.capturedAt).getTime();
+    return !isNaN(t) && t >= sinceDate.getTime();
+  });
+
+  // Collapse repeated captures of the same slug. For kindle, sum newHighlights.
+  const bySlug = new Map<string, CaptureLogEntry>();
+  for (const e of filtered) {
+    const prev = bySlug.get(e.slug);
+    if (!prev) {
+      bySlug.set(e.slug, { ...e });
+      continue;
+    }
+    if (e.type === 'kindle') {
+      prev.newHighlights = (prev.newHighlights || 0) + (e.newHighlights || 0);
+    }
+    if (new Date(e.capturedAt) > new Date(prev.capturedAt)) {
+      prev.capturedAt = e.capturedAt;
+      prev.title = e.title;
+    }
+  }
+
+  const items = Array.from(bySlug.values());
+  const kindle = items.filter(i => i.type === 'kindle' && (i.newHighlights || 0) > 0);
+  const web = items.filter(i => i.type === 'web');
+  const youtube = items.filter(i => i.type === 'youtube');
+  const email = items.filter(i => i.type === 'email');
+  const pdf = items.filter(i => i.type === 'pdf');
+
+  const markdown = formatDigestMarkdown({ since: sinceDate, kindle, web, youtube, email, pdf });
+
+  return corsResponse(200, {
+    since: sinceDate.toISOString(),
+    count: items.length,
+    items,
+    markdown,
+  });
 }
 
 async function handlePage(req: Request): Promise<Response> {
@@ -612,6 +784,8 @@ async function handleUploadPdf(req: Request): Promise<Response> {
 
   // Fire and forget
   gbrainPut(slug, markdown).then(() => {
+    recordCapture({ slug, type: 'pdf', title, capturedAt: timestamp });
+
     // AI post-processing (background, never blocks)
     postProcess(slug, markdown).catch(err => {
       console.warn('[post-process] failed:', err.message);
@@ -970,6 +1144,15 @@ async function handleCaptureYouTube(req: Request): Promise<Response> {
 
   // Fire-and-forget save
   gbrainPut(slug, markdown).then(() => {
+    recordCapture({
+      slug,
+      type: 'youtube',
+      title,
+      capturedAt: timestamp,
+      url: `https://youtube.com/watch?v=${videoId}`,
+      channel: channel || undefined,
+    });
+
     postProcess(slug, markdown).catch(err => {
       console.warn('[post-process] failed:', err.message);
     });
@@ -1039,12 +1222,26 @@ async function handleCapture(req: Request): Promise<Response> {
       });
 
   // Fire-and-forget — don't block the response on gbrain
-  gbrainPut(slug, markdown).then(() => {
-    // Track highlight count for kindle imports
+  gbrainPut(slug, markdown).then(async () => {
+    // Track highlight count for kindle imports, record digest entry
+    let newHighlights: number | undefined;
     if (slug.startsWith('kindle/')) {
       const hlCount = (markdown.match(/^> /gm) || []).length;
-      if (hlCount > 0) updateHighlightCount(slug, hlCount);
+      if (hlCount > 0) newHighlights = await updateHighlightCount(slug, hlCount);
     }
+
+    const type = detectCaptureType(slug);
+    const author = type === 'kindle' ? slug.split('/')[1]?.replace(/-/g, ' ') : undefined;
+    recordCapture({
+      slug,
+      type,
+      title,
+      capturedAt: capturedAt || new Date().toISOString(),
+      newHighlights,
+      url: isKindle || isGmail ? undefined : canonical,
+      author,
+      from: isGmail ? emailFrom : undefined,
+    });
 
     // AI post-processing (background, never blocks)
     postProcess(slug, markdown).catch(err => {
@@ -1209,6 +1406,11 @@ if (import.meta.main) {
       // Recent captures endpoint
       if (url.pathname === '/api/recent' && req.method === 'GET') {
         return handleRecent(req);
+      }
+
+      // Daily digest — captures since a given date (for OpenClaw cron)
+      if (url.pathname === '/api/digest' && req.method === 'GET') {
+        return handleDigest(req);
       }
 
       // Stats endpoint
