@@ -294,7 +294,7 @@ async function updateHighlightCount(slug: string, count: number): Promise<number
 
 // Append-only capture log for the daily digest.
 // Each line is a JSON object — robust to crashes, easy to filter by date.
-type CaptureLogEntry = {
+export type CaptureLogEntry = {
   slug: string;
   type: 'kindle' | 'web' | 'youtube' | 'email' | 'pdf';
   title: string;
@@ -316,7 +316,7 @@ async function recordCapture(entry: CaptureLogEntry): Promise<void> {
   }
 }
 
-function detectCaptureType(slug: string): CaptureLogEntry['type'] {
+export function detectCaptureType(slug: string): CaptureLogEntry['type'] {
   if (slug.startsWith('kindle/')) return 'kindle';
   if (slug.startsWith('youtube/')) return 'youtube';
   if (slug.startsWith('email/')) return 'email';
@@ -377,7 +377,7 @@ function formatTitleCase(slug: string): string {
   return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-function formatDigestMarkdown(opts: {
+export function formatDigestMarkdown(opts: {
   since: Date;
   kindle: CaptureLogEntry[];
   web: CaptureLogEntry[];

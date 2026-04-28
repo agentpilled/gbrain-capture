@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, mock } from 'bun:test';
-import { canonicalizeUrl, slugFromUrl, buildMarkdown } from '../server.ts';
+import { canonicalizeUrl, slugFromUrl, buildMarkdown, detectCaptureType, formatDigestMarkdown } from '../server.ts';
+import type { CaptureLogEntry } from '../server.ts';
 import { $ } from 'bun';
 
 // ---------------------------------------------------------------------------
@@ -347,4 +348,119 @@ describe('HTTP server', () => {
     const res = await fetch(`${BASE}/api/upload-pdf`, { method: 'POST', body: form });
     expect(res.status).toBe(400);
   });
+
+  // -------------------------------------------------------------------------
+  // /api/digest — daily digest endpoint
+  // -------------------------------------------------------------------------
+
+  test('GET /api/digest returns empty digest when window has no captures', async () => {
+    const res = await fetch(`${BASE}/api/digest?since=2099-01-01`);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.count).toBe(0);
+    expect(data.markdown).toContain('Sin lecturas nuevas');
+    expect(data.since).toContain('2099-01-01');
+  });
+
+  test('GET /api/digest rejects malformed since param', async () => {
+    const res = await fetch(`${BASE}/api/digest?since=not-a-date`);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain('Invalid since');
+  });
+
+  test('GET /api/digest defaults to last day when no params given', async () => {
+    const res = await fetch(`${BASE}/api/digest`);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    const sinceMs = new Date(data.since).getTime();
+    const expected = Date.now() - 24 * 3600 * 1000;
+    expect(Math.abs(sinceMs - expected)).toBeLessThan(5000);
+  });
 });
+
+// ---------------------------------------------------------------------------
+// Daily digest — pure helpers
+// ---------------------------------------------------------------------------
+
+describe('detectCaptureType', () => {
+  test('classifies kindle slugs', () => {
+    expect(detectCaptureType('kindle/cal-newport/deep-work')).toBe('kindle');
+  });
+  test('classifies youtube slugs', () => {
+    expect(detectCaptureType('youtube/lex-fridman/some-talk')).toBe('youtube');
+  });
+  test('classifies email slugs', () => {
+    expect(detectCaptureType('email/stratechery/strategy-letter')).toBe('email');
+  });
+  test('classifies pdf slugs', () => {
+    expect(detectCaptureType('pdf/some-paper')).toBe('pdf');
+  });
+  test('falls back to web for unknown prefix', () => {
+    expect(detectCaptureType('web/example-com/article')).toBe('web');
+    expect(detectCaptureType('random-thing')).toBe('web');
+  });
+});
+
+describe('formatDigestMarkdown', () => {
+  const since = new Date('2026-04-27T00:00:00Z');
+  const empty = { since, kindle: [], web: [], youtube: [], email: [], pdf: [] };
+
+  test('returns "no captures" message when empty', () => {
+    const md = formatDigestMarkdown(empty);
+    expect(md).toContain('Sin lecturas nuevas');
+    expect(md).toContain('2026-04-27');
+  });
+
+  test('renders kindle section with highlight totals and pluralization', () => {
+    const kindle: CaptureLogEntry[] = [
+      { slug: 'kindle/cal-newport/deep-work', type: 'kindle', title: 'Deep Work', capturedAt: '2026-04-27T10:00:00Z', newHighlights: 3, author: 'cal-newport' },
+      { slug: 'kindle/anne-lamott/bird-by-bird', type: 'kindle', title: 'Bird by Bird', capturedAt: '2026-04-27T11:00:00Z', newHighlights: 1, author: 'anne-lamott' },
+    ];
+    const md = formatDigestMarkdown({ ...empty, kindle });
+    expect(md).toContain('*Kindle* — 4 highlights nuevos en 2 libros');
+    expect(md).toContain('- Deep Work — Cal Newport (3 nuevos)');
+    expect(md).toContain('- Bird by Bird — Anne Lamott (1 nuevo)');
+  });
+
+  test('singular pluralization for 1 highlight in 1 book', () => {
+    const kindle: CaptureLogEntry[] = [
+      { slug: 'kindle/x/y', type: 'kindle', title: 'Y', capturedAt: '2026-04-27T10:00:00Z', newHighlights: 1, author: 'x' },
+    ];
+    const md = formatDigestMarkdown({ ...empty, kindle });
+    expect(md).toContain('1 highlight nuevo en 1 libro');
+  });
+
+  test('renders web section with hostname extracted from url', () => {
+    const web: CaptureLogEntry[] = [
+      { slug: 'web/x/y', type: 'web', title: 'Hello World', capturedAt: '2026-04-27T10:00:00Z', url: 'https://www.stratechery.com/2026/some-post' },
+    ];
+    const md = formatDigestMarkdown({ ...empty, web });
+    expect(md).toContain('*Web* — 1 artículo');
+    expect(md).toContain('- Hello World — stratechery.com');
+  });
+
+  test('renders youtube and email sections together', () => {
+    const youtube: CaptureLogEntry[] = [
+      { slug: 'youtube/lex/talk', type: 'youtube', title: 'AI Talk', capturedAt: '2026-04-27T10:00:00Z', channel: 'Lex Fridman' },
+    ];
+    const email: CaptureLogEntry[] = [
+      { slug: 'email/strat/letter', type: 'email', title: 'Weekly Letter', capturedAt: '2026-04-27T10:00:00Z', from: 'Stratechery' },
+    ];
+    const md = formatDigestMarkdown({ ...empty, youtube, email });
+    expect(md).toContain('*YouTube* — 1 video');
+    expect(md).toContain('- AI Talk — Lex Fridman');
+    expect(md).toContain('*Email* — 1 newsletter');
+    expect(md).toContain('- Weekly Letter — Stratechery');
+  });
+
+  test('renders pdf section', () => {
+    const pdf: CaptureLogEntry[] = [
+      { slug: 'pdf/paper', type: 'pdf', title: 'Attention Is All You Need', capturedAt: '2026-04-27T10:00:00Z' },
+    ];
+    const md = formatDigestMarkdown({ ...empty, pdf });
+    expect(md).toContain('*PDF* — 1 documento');
+    expect(md).toContain('- Attention Is All You Need');
+  });
+});
+

@@ -32,6 +32,7 @@ A standalone Bun HTTP server that:
 - Calls `gbrain put <slug>` via CLI (content piped via stdin)
 - Returns 202 immediately (fire-and-forget)
 - Handles CORS for chrome-extension:// origins
+- Appends every capture to `.captures.jsonl` (append-only, gitignored) and exposes `GET /api/digest?since=ISO|days=N` — returns captures since a date grouped by type (kindle/web/youtube/email/pdf) plus a Slack-friendly markdown summary. Kindle entries include `newHighlights` (delta vs previous capture).
 
 The server resolves the gbrain binary in this order: `GBRAIN_BIN` env var, `./bin/gbrain` (local build from setup.sh), then `gbrain` on PATH (global fallback).
 
